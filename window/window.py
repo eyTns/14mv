@@ -8,7 +8,7 @@ class MyWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("PyQt Example")
+        self.setWindowTitle("random number displayer")
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -24,8 +24,8 @@ class MyWindow(QMainWindow):
         frame2 = QFrame()
         frame2.setStyleSheet("background-color: lightgray;")
         main_layout.addWidget(frame2)
-        grid_layout = QGridLayout()  # Use QGridLayout for a grid arrangement
-        grid_layout.setSpacing(0)  # Set spacing to 0 for no gaps
+        grid_layout = QGridLayout()
+        grid_layout.setSpacing(0)
         grid_layout.setContentsMargins(10, 10, 10, 10)
         frame2.setLayout(grid_layout)
 
