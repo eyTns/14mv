@@ -1,5 +1,6 @@
 import pygetwindow as gw
 from PIL import Image, ImageGrab
+import cv2
 
 
 def capture_window_screenshot(window_title, save_path):
@@ -52,6 +53,13 @@ def find_template_in_screenshot(screenshot_path, template_path):
         return None
 
 
+size_to_position_dict = {
+    5: (395, 234),
+    6: (370, 209),
+    7: (345, 184),
+    8: (320, 159)
+}
+
 
 def find_all_templates_in_screenshot(screenshot_path, template_path):
     try:
@@ -73,9 +81,8 @@ def find_all_templates_in_screenshot(screenshot_path, template_path):
                 # Crop the screenshot to the same size as the template
                 screenshot_region = screenshot.crop((x, y, x + template_width, y + template_height))
 
-                if (x, y) == (370, 209):
-                    screenshot_region.save(f"screenshot_region.png")
-                    template.save(f"template.png")
+                if (x, y) in size_to_position_dict.values():
+                    screenshot_region.save(f"screenshot_region_{x}_{y}.png")
                     
                 # Compare the cropped region with the template
                 if screenshot_region == template:
@@ -95,3 +102,16 @@ def compare_image_same(image_path_1, image_path_2):
 
     return image_1==image_2
 
+
+def MSE_of_images(image_path_1, image_path_2):
+    # Load the two images you want to compare
+    image1 = cv2.imread(image_path_1)
+    image2 = cv2.imread(image_path_2)
+
+    # Calculate the Mean Squared Error (MSE)
+    mse = ((image1 - image2) ** 2).mean()
+
+    cv2.compare_ssim(image1, image2, multichannel=True)
+
+    print(f'Mean Squared Error: {mse}')
+    return mse

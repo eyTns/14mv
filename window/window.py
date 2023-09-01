@@ -63,21 +63,21 @@ class MyWindow(QMainWindow):
         else:
             print(f"Template {template_path} not found in the screenshot.")
         
-        # Fifth Frame
-        for i in range(1, 9+1):
-            screenshot_path = save_path
-            template_path = f"images/cell_{i}.png"
-            positions = find_all_templates_in_screenshot(screenshot_path, template_path)
+        # # Fifth Frame
+        # for i in range(1, 9+1):
+        #     screenshot_path = save_path
+        #     template_path = f"images/cell_{i}.png"
+        #     positions = find_all_templates_in_screenshot(screenshot_path, template_path)
 
-            if positions:
-                print(f"Found {len(positions)} occurrences of the template cell {i} at positions:")
-                for position in positions:
-                    print(position)
-            else:
-                print(f"Template {template_path} not found in the screenshot.")
+        #     if positions:
+        #         print(f"Found {len(positions)} occurrences of the template cell {i} at positions:")
+        #         for position in positions:
+        #             print(position)
+        #     else:
+        #         print(f"Template {template_path} not found in the screenshot.")
 
 
-        # Sixth Frame
+        # Last Frame
         frame_last = QLabel("Bye")
         main_layout.addWidget(frame_last)
 
