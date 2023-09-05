@@ -73,9 +73,17 @@ class MyWindow(QMainWindow):
 
         frame4 = QFrame()
         layout = QVBoxLayout()
-        label = QLabel()
-        label.setText("\n".join("Row {}: {}".format(i, ", ".join(cell for cell in row if cell is not None)) for i, row in enumerate(best_fit_cells)))
-        layout.addWidget(label)
+        # label = QLabel()
+        # label.setText("\n".join("Row {}: {}".format(i, ", ".join(cell for cell in row if cell is not None)) for i, row in enumerate(best_fit_cells)))
+        # layout.addWidget(label)
+
+        # Create a QTableWidget with 6 rows and 6 columns
+        table = QTableWidget(6, 6)
+        for i, row in enumerate(best_fit_cells):
+            for j, cell in enumerate(row):
+                item = QTableWidgetItem(cell)
+                table.setItem(i, j, item)
+        layout.addWidget(table)
         frame4.setLayout(layout)
         main_layout.addWidget(frame4)
 
