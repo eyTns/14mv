@@ -1,7 +1,7 @@
-import sys
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QGridLayout, QFrame
-from window.utils import capture_window_screenshot, find_all_templates_in_screenshot, find_best_fit_cells
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel, QGridLayout, QFrame
+from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QVBoxLayout
+from window.utils import capture_window_screenshot, find_best_fit_cells
 
 import random
 
@@ -86,7 +86,6 @@ class MyWindow(QMainWindow):
         layout.addWidget(table)
         frame4.setLayout(layout)
         main_layout.addWidget(frame4)
-
 
 
 
