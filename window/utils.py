@@ -214,5 +214,28 @@ def find_best_fit_cells(screenshot_path, cell_size):
     return best_fit_filenames
 
 
+def convert_to_numeric(best_fit_cells):
+    # Define a dictionary to map image filenames to numeric values
+    filename_to_numeric = {
+        f'cell_{i}.png': i for i in range(1, 9+1)
+    }
+
+    # Add additional mappings for other filenames
+    filename_to_numeric.update({
+        'cell_blank.png': 0,
+        'cell_flag.png': -1,
+        'cell_question.png': -2
+    })
+
+    # Return a list of lists containing the numeric values of the best-fit cells
+    return [[filename_to_numeric[cell] for cell in row] for row in best_fit_cells]
 
 
+def get_neighboring_cells(row, col, grid):
+    neighbors = []
+    for dr in [-1, 0, 1]:
+        for dc in [-1, 0, 1]:
+            r, c = row + dr, col + dc
+            if 0 <= r < 6 and 0 <= c < 6 and (r != row or c != col):
+                neighbors.append(grid[r][c])
+    return neighbors
