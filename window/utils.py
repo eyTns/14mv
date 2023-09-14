@@ -239,3 +239,13 @@ def get_neighboring_cells(row, col, grid):
             if 0 <= r < 6 and 0 <= c < 6 and (r != row or c != col):
                 neighbors.append(grid[r][c])
     return neighbors
+
+
+def get_neighboring_cells_with_indices(row, col, grid):
+    neighbors = []
+    for dr in [-1, 0, 1]:
+        for dc in [-1, 0, 1]:
+            r, c = row + dr, col + dc
+            if 0 <= r < 6 and 0 <= c < 6 and (r != row or c != col):
+                neighbors.append((grid[r][c], r, c))
+    return neighbors
