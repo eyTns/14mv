@@ -249,3 +249,23 @@ def get_neighboring_cells_with_indices(row, col, grid):
             if 0 <= r < 6 and 0 <= c < 6 and (r != row or c != col):
                 neighbors.append((grid[r][c], r, c))
     return neighbors
+
+
+# TODO: Make tests for this function
+def get_neighboring_blanks(row, col, grid):
+    neighboring_blanks = []
+    mines_to_place = grid[row][col]
+
+    for dr in [-1, 0, 1]:
+        for dc in [-1, 0, 1]:
+            r, c = row + dr, col + dc
+
+            if 0 <= r < 6 and 0 <= c < 6 and (r != row or c != col):
+                neighbor_value = grid[r][c]
+
+                if neighbor_value == -1:  # Blank cell
+                    neighboring_blanks.append((r, c))
+                elif neighbor_value == -2:  # Flag cell
+                    mines_to_place -= 1
+
+    return mines_to_place, neighboring_blanks
