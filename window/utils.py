@@ -215,16 +215,16 @@ def find_best_fit_cells(screenshot_path, cell_size):
 
 
 def convert_to_numeric(best_fit_cells):
-    # Define a dictionary to map image filenames to numeric values
+    # Define the mapping for the numeric values
     filename_to_numeric = {
-        f'cell_{i}.png': i for i in range(1, 9+1)
+        f'cell_{i}.png': i for i in range(0, 9+1)
     }
 
-    # Add additional mappings for other filenames
+    # Update mappings for other filenames
     filename_to_numeric.update({
-        'cell_blank.png': 0,
-        'cell_flag.png': -1,
-        'cell_question.png': -2
+        'cell_blank.png': -1,
+        'cell_flag.png': -2,
+        'cell_question.png': -3
     })
 
     # Return a list of lists containing the numeric values of the best-fit cells
