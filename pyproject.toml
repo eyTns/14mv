@@ -9,4 +9,5 @@ dependencies = [
     "pillow>=11.1.0",
     "pygetwindow>=0.0.9",
     "pyqt5-tools>=5.15.9.3.3",
+    "pytest>=8.3.5",
 ]

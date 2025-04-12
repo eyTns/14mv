@@ -1,8 +1,35 @@
+import os
+
+import cv2
+import numpy as np
 import pygetwindow as gw
 from PIL import Image, ImageGrab
-import cv2
-import os
-import tempfile
+
+
+def imread(filename, flags=cv2.IMREAD_COLOR, dtype=np.uint8):
+    try:
+        n = np.fromfile(filename, dtype)
+        img = cv2.imdecode(n, flags)
+        return img
+    except Exception as e:
+        print(e)
+        return None
+
+
+def imwrite(filename, img, params=None):
+    try:
+        ext = os.path.splitext(filename)[1]
+        result, n = cv2.imencode(ext, img, params)
+
+        if result:
+            with open(filename, mode='w+b') as f:
+                n.tofile(f)
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(e)
+        return False
 
 
 def capture_window_screenshot(window_title, save_path):
@@ -92,28 +119,28 @@ def compare_image_same(image_path_1, image_path_2):
 
 
 def MSE_of_images(image_path_1, image_path_2):
-    image1 = cv2.imread(image_path_1)
-    image2 = cv2.imread(image_path_2)
+    image1 = imread(image_path_1)
+    image2 = imread(image_path_2)
     mse = ((image1 - image2) ** 2).mean()
-    print(f'Mean Squared Error: {mse}')
     return mse
 
 
 def find_best_template_filename(captured_cell_path):
-    captured_cell = cv2.imread(captured_cell_path)
     current_directory = os.path.dirname(os.path.abspath(__file__))
     templates_directory = os.path.join(current_directory, '..', 'images')
     best_template_filename = None
     min_mse = float('inf')
     for template_filename in os.listdir(templates_directory):
-        template = cv2.imread(os.path.join(templates_directory, template_filename))
-        mse = ((captured_cell - template) ** 2).mean()
+        mse = MSE_of_images(captured_cell_path, os.path.join(templates_directory, template_filename))
         if mse < min_mse:
             min_mse = mse
             best_template_filename = template_filename
+    
+    # print(captured_cell_path)
+    # print(f'Best template: {best_template_filename}, MSE: {min_mse}')
 
     if best_template_filename is not None:
-        cv2.imwrite('best_template.png', cv2.imread(os.path.join(templates_directory, best_template_filename)))
+        imwrite('best_template.png', imread(os.path.join(templates_directory, best_template_filename)))
         return best_template_filename, min_mse
     else:
         return None, None
@@ -121,71 +148,182 @@ def find_best_template_filename(captured_cell_path):
 
 def find_best_fit_cells(screenshot_path, cell_size):
     cell_coordinates = get_cropped_cell_coordinates(cell_size)
-    screenshot = cv2.imread(screenshot_path)
-    current_directory = os.path.dirname(os.path.abspath(__file__))
-    templates_directory = os.path.join(current_directory, '..', 'images')
+    screenshot = imread(screenshot_path)
     best_fit_filenames = []
     for row in cell_coordinates:
         row_best_fit = []
         for coordinates in row:
             x1, y1, x2, y2 = coordinates
             captured_cell = screenshot[y1:y2, x1:x2]
-            temp_dir = tempfile.gettempdir()
+            temp_dir = "C:/dev/14mv/temp" ## should not have korean
             captured_cell_filename = os.path.join(temp_dir, f'captured_cell_{coordinates[0]}_{coordinates[1]}.png')
-            cv2.imwrite(captured_cell_filename, captured_cell)
+            imwrite(captured_cell_filename, captured_cell)
             best_template_filename, min_mse = find_best_template_filename(captured_cell_filename)
             row_best_fit.append(best_template_filename)
         best_fit_filenames.append(row_best_fit)
     return best_fit_filenames
 
-
 def convert_to_numeric(best_fit_cells):
-    filename_to_numeric = {
-        f'cell_{i}.png': i for i in range(0, 9+1)
-    }
-    filename_to_numeric.update({
-        'cell_blank.png': -1,
-        'cell_flag.png': -2,
-        'cell_question.png': -3
-    })
-    return [[filename_to_numeric[cell] for cell in row] for row in best_fit_cells]
-
+   filename_to_numeric = {
+       f'cell_{i}.png': i for i in range(0, 9+1)
+   }
+   filename_to_numeric.update({
+       'cell_blank.png': -1,
+       'cell_flag.png': -2,
+       'cell_question.png': -3
+   })
+   return [[filename_to_numeric[cell] for cell in row] for row in best_fit_cells]
 
 def get_neighboring_cells(row, col, grid):
-    neighbors = []
-    for dr in [-1, 0, 1]:
-        for dc in [-1, 0, 1]:
-            r, c = row + dr, col + dc
-            if 0 <= r < 6 and 0 <= c < 6 and (r != row or c != col):
-                neighbors.append(grid[r][c])
-    return neighbors
-
+   neighbors = []
+   for dr in [-1, 0, 1]:
+       for dc in [-1, 0, 1]:
+           r, c = row + dr, col + dc
+           if 0 <= r < len(grid) and 0 <= c < len(grid[0]) and (r != row or c != col):
+               neighbors.append(grid[r][c])
+   return neighbors
 
 def get_neighboring_cells_with_indices(row, col, grid):
-    neighbors = []
-    for dr in [-1, 0, 1]:
-        for dc in [-1, 0, 1]:
-            r, c = row + dr, col + dc
-            if 0 <= r < 6 and 0 <= c < 6 and (r != row or c != col):
-                neighbors.append((grid[r][c], r, c))
-    return neighbors
+   neighbors = []
+   for dr in [-1, 0, 1]:
+       for dc in [-1, 0, 1]:
+           r, c = row + dr, col + dc
+           if 0 <= r < len(grid) and 0 <= c < len(grid[0]) and (r != row or c != col):
+               neighbors.append((grid[r][c], r, c))
+   return neighbors
 
-
-# TODO: Make tests for this function
 def get_neighboring_blanks(row, col, grid):
-    neighboring_blanks = []
-    mines_to_place = grid[row][col]
+   neighboring_blanks = []
+   mines_to_place = grid[row][col]
 
-    for dr in [-1, 0, 1]:
-        for dc in [-1, 0, 1]:
-            r, c = row + dr, col + dc
+   for dr in [-1, 0, 1]:
+       for dc in [-1, 0, 1]:
+           r, c = row + dr, col + dc
 
-            if 0 <= r < 6 and 0 <= c < 6 and (r != row or c != col):
-                neighbor_value = grid[r][c]
+           if 0 <= r < len(grid) and 0 <= c < len(grid[0]) and (r != row or c != col):
+               neighbor_value = grid[r][c]
 
-                if neighbor_value == -1:  # Blank cell
-                    neighboring_blanks.append((r, c))
-                elif neighbor_value == -2:  # Flag cell
-                    mines_to_place -= 1
+               if neighbor_value == -1:
+                   neighboring_blanks.append((r, c))
+               elif neighbor_value == -2:
+                   mines_to_place -= 1
 
-    return mines_to_place, neighboring_blanks
+   return mines_to_place, neighboring_blanks
+
+def analyze_number_cells(grid):
+    number_cells_info = {}
+    for r in range(len(grid)):
+        for c in range(len(grid[0])):
+            if grid[r][c] >= 0:  # 숫자 칸인 경우
+                mines_needed, blank_cells = get_neighboring_blanks(r, c, grid)
+                if blank_cells:
+                    number_cells_info[(r, c)] = {
+                        'value': grid[r][c],
+                        'mines_needed': mines_needed,
+                        'total_blanks': len(blank_cells),
+                        'blank_cells': blank_cells,
+                    }
+    return number_cells_info
+
+
+def find_single_cell_hints(number_cells_info):
+    hints = []
+    
+    for (r, c), info in number_cells_info.items():
+        mines_needed = info['mines_needed']
+        blank_cells = info['blank_cells']
+        
+        if mines_needed == 0 and len(blank_cells) > 0:
+            for blank_r, blank_c in blank_cells:
+                hints.append({
+                    'type': 'safe',
+                    'location': (blank_r, blank_c)
+                })
+        elif mines_needed == len(blank_cells) and mines_needed > 0:
+            for blank_r, blank_c in blank_cells:
+                hints.append({
+                    'type': 'mine',
+                    'location': (blank_r, blank_c)
+                })
+    
+    return hints
+
+def find_common_areas(number_cells_info):
+    hints = []
+
+    for (r1, c1), info1 in number_cells_info.items():
+        for (r2, c2), info2 in number_cells_info.items():
+            if (r1, c1) >= (r2, c2):
+                continue
+            
+            blanks1_set = set(info1['blank_cells'])
+            blanks2_set = set(info2['blank_cells'])
+            common_blanks = blanks1_set.intersection(blanks2_set)
+            
+            if not common_blanks:
+                continue
+                
+            only_in_cell1 = blanks1_set - blanks2_set
+            only_in_cell2 = blanks2_set - blanks1_set
+            
+            need1 = info1['mines_needed']
+            need2 = info2['mines_needed']
+            blank1 = len(blanks1_set - blanks2_set)
+            blank2 = len(blanks2_set - blanks1_set)
+            blankc = len(common_blanks)
+
+            # if (r1, c1) == (4, 2) and (r2, c2) == (5, 2):
+            #     print(f"Only in cell 1: {only_in_cell1}")
+            #     print(f"Only in cell 2: {only_in_cell2}")
+            #     print(f"Common blanks: {common_blanks}")
+            #     print(f"Mines needed 1: {need1}")
+            #     print(f"Mines needed 2: {need2}")
+            
+            if blank1 <= need1 - need2 and need1 > need2:
+                for blank_r, blank_c in only_in_cell1:
+                    hints.append({
+                        'type': 'mine',
+                        'location': (blank_r, blank_c)
+                    })
+                for blank_r, blank_c in only_in_cell2:
+                    hints.append({
+                        'type': 'safe',
+                        'location': (blank_r, blank_c)
+                    })
+            
+            if blank2 <= need2 - need1 and need2 > need1:
+                for blank_r, blank_c in only_in_cell2:
+                    hints.append({
+                        'type': 'mine',
+                        'location': (blank_r, blank_c)
+                    })
+                for blank_r, blank_c in only_in_cell1:
+                    hints.append({
+                        'type': 'safe',
+                        'location': (blank_r, blank_c)
+                    })
+            
+            if need1 <= need2 - blank2:
+                for blank_r, blank_c in only_in_cell1:
+                    hints.append({
+                        'type': 'safe',
+                        'location': (blank_r, blank_c)
+                    })
+            
+            if need1 - blank1 >= need2:
+                for blank_r, blank_c in only_in_cell2:
+                    hints.append({
+                        'type': 'safe',
+                        'location': (blank_r, blank_c)
+                    })
+
+    return hints
+
+
+def print_hints(hints):
+    for hint in hints:
+        # row num: +1
+        # column: 0~7 to ABCDEFGH
+        hint['location'] = (hint['location'][0]+1, chr(65+hint['location'][1]))
+        hint['type'] = hint['type'].capitalize()
+        print(f"{hint['type']}: {hint['location']}")

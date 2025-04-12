@@ -1,10 +1,19 @@
-import pytest
-from PyQt5.QtWidgets import QApplication, QMainWindow
-from window.window import MyWindow
-from window import utils
-from window.utils import convert_to_numeric, get_neighboring_cells, get_neighboring_cells_with_indices
 import os
 import sys
+
+import pytest
+from PyQt5.QtWidgets import QApplication, QMainWindow
+
+from window import utils
+from window.utils import (convert_to_numeric,
+                          get_neighboring_cells,
+                          get_neighboring_cells_with_indices,
+                          analyze_number_cells,
+                          find_single_cell_hints,
+                          find_common_areas,
+                          )
+from window.window import MyWindow
+
 
 @pytest.fixture
 def sample_best_fit_cells():
@@ -60,3 +69,55 @@ def test_get_neighboring_cells_with_indices(sample_numeric_grid):
     neighbors = get_neighboring_cells_with_indices(0, 0, sample_numeric_grid)
     expected_neighbors = [(2, 0, 1), (7, 1, 0), (8, 1, 1)]
     assert neighbors == expected_neighbors
+
+
+def test_minesweeper_hints():
+    grid = [
+        [-3, 1, 1, 3, -2, 3], 
+        [-1, 4, -1, -1, -2, -2], 
+        [-2, -2, -2, 6, -2, -2], 
+        [-1, -1, -2, 4, -2, 3], 
+        [-1, -1, 3, 3, 2, 1], 
+        [-1, -1, 2, -2, 1, 0]
+    ]
+    
+    number_cells_info = analyze_number_cells(grid)
+    hints = find_common_areas(number_cells_info)
+    safe_cells = [(hint['location'][0], hint['location'][1]) 
+                 for hint in hints if hint['type'] == 'safe']
+    mine_cells = [(hint['location'][0], hint['location'][1]) 
+                 for hint in hints if hint['type'] == 'mine']
+    expected_safe_cells = [(3, 1)]
+    
+    print(f"생성된 힌트: {hints}")
+    print(f"안전한 셀들: {safe_cells}")
+    print(f"지뢰 셀들: {mine_cells}")
+    assert (3, 1) in safe_cells, f"(3,1) 위치가 안전한 셀로 감지되지 않았습니다."
+    for cell in expected_safe_cells:
+        assert cell in safe_cells, f"{cell} 위치가 안전한 셀로 감지되지 않았습니다."
+
+
+
+def test_minesweeper_hints2():
+    # 주어진 예제 grid
+    grid = [
+        [-3, 1, 1, 3, -2, 3], 
+        [-1, 4, -1, -1, -2, -2], 
+        [-2, -2, -2, 6, -2, -2], 
+        [-1, -1, -2, 4, -2, 3], 
+        [-1, -1, 3, 3, 2, 1], 
+        [-1, -1, 2, -2, 1, 0]
+    ]
+    
+    number_cells_info = analyze_number_cells(grid)
+    single_cell_hints = find_single_cell_hints(number_cells_info)
+    common_area_hints = find_common_areas(number_cells_info)
+    all_hints = single_cell_hints + common_area_hints
+    safe_cells = [(hint['location'][0], hint['location'][1]) 
+                 for hint in all_hints if hint['type'] == 'safe']
+    mine_cells = [(hint['location'][0], hint['location'][1]) 
+                 for hint in all_hints if hint['type'] == 'mine']
+    
+    print(f"안전한 셀들: {safe_cells}")
+    print(f"지뢰 셀들: {mine_cells}")
+    assert (3, 1) in safe_cells, f"(3,1) 위치가 안전한 셀로 감지되지 않았습니다."

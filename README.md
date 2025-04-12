@@ -32,3 +32,11 @@ This application failed to start because no Qt platform plugin could be initiali
 - [ ] TDD 어케함?
 - [ ] 사이즈 인식하기
   - 좌상단 꼭짓점이 "6"에서 나오면 그 판의 사이즈는 5임
+
+- [ ] 코드가 init에 전부 있는게 보기 안좋으므로 리팩토링
+- [ ] 재귀적으로 여러번 실행해서 결과 표시
+- [ ] 안전한 칸과 깃발 꽂을 칸을 표로 / 이미지로 표시
+- [ ] 해당하는 칸을 자동으로 클릭하기
+- [ ] 주석 정리좀
+
+
