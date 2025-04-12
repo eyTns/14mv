@@ -1,0 +1,17 @@
+[project]
+name = "14mv"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "opencv-python-headless>=4.11.0.86",
+    "pillow>=11.1.0",
+    "pygetwindow>=0.0.9",
+    "pyqt5>=5.15.11",
+    "pyqt5-sip>=12.17.0",
+    "pytest>=8.3.5",
+]
+
+[tool.uv]
+constraint-dependencies = ["pyqt5-qt5 <=5.15.2"]

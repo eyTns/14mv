@@ -2,6 +2,15 @@
  14 minesweeper variants hint calculator with GUI
 
 
+## 켜는법 (windows)
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\.venv\Scripts\activate # 터미널 활성화를 해놓은 채로 main.py를 실행행
+pip install uv
+
+```
+
+
 # TODOs
 - [X] 이미지를 받아오기
 - [X] 이미지에서 표로 변환
