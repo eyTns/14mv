@@ -5,10 +5,22 @@
 ## 켜는법 (windows)
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-.\.venv\Scripts\activate # 터미널 활성화를 해놓은 채로 main.py를 실행행
+.\.venv\Scripts\activate # 터미널 활성화를 해놓은 채로 main.py를 실행
 pip install uv
-
 ```
+
+## pyqt5 가 실행이 안되는 문제
+```
+(14mv) PS C:\Users\[실명]\Documents\GitHub\14mv> & c:/Users/[실명]/Documents/GitHub/14mv/.venv/Scripts/python.exe c:/Users/[실명]/Documents/GitHub/14mv/main.py
+qt.qpa.plugin: Could not find the Qt platform plugin "windows" in ""
+This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix this problem.
+```
+- 경로에 한글이 있어서 그렇다고 한다.
+  - https://blog.naver.com/blueqnpfr1/221582202946
+- 유저명 바꿔야지...
+
+
+
 
 
 # TODOs
