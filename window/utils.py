@@ -34,14 +34,14 @@ def imwrite(filename, img, params=None):
         return False
 
 
-def capture_window_screenshot(window_title, save_path):
+def capture_window_screenshot(window_title):
     try:
         target_window = gw.getWindowsWithTitle(window_title)[0]
         target_window.activate()
         x, y, width, height = target_window.left, target_window.top, target_window.width, target_window.height
         time.sleep(0.2)
         screenshot = ImageGrab.grab(bbox=(x, y, x + width, y + height))
-        screenshot.save(save_path)
+        screenshot.save(f"{window_title}.png")
         return True
     except Exception as e:
         print(f"Error capturing screenshot: {e}")
@@ -403,10 +403,52 @@ def click_window_position(window_title, relative_x, relative_y, right_click=Fals
         return False
 
 
+def batch_click_positions(window_title, clicks):
+    """
+    창을 활성화하고 여러 위치를 지정된 방식으로 클릭합니다.
+
+    Args:
+        window_title (str): 대상 창의 제목
+        click_info_list (list of tuples): [(x, y, button_type), ...] 형식의 목록
+            - x, y: 창 내부의 상대 좌표
+            - button_type: "left" 또는 "right" 문자열
+    """
+    try:
+        target_window = gw.getWindowsWithTitle(window_title)[0]
+        target_window.activate()
+        time.sleep(0.1)
+        original_x, original_y = pyautogui.position()
+        pyautogui.FAILSAFE = False
+        
+        # 각 위치에서 지정된 방식으로 클릭
+        for relative_x, relative_y, button_type in clicks:
+            absolute_x = target_window.left + relative_x
+            absolute_y = target_window.top + relative_y
+            pyautogui.moveTo(absolute_x, absolute_y)
+            
+            if button_type == "left":
+                pyautogui.click()
+            elif button_type == "right":
+                pyautogui.rightClick()
+            else:
+                print(f"Warning: Unknown button type '{button_type}', skipping click")
+        
+        # 원래 마우스 위치로 복귀
+        pyautogui.moveTo(original_x, original_y)
+        pyautogui.FAILSAFE = True
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error clicking positions: {e}")
+        return False
+
+
 def click_cell(window_title, location, size, right_click=False):
+
     """
     주어진 location의 셀을 클릭합니다.
-    
+
     Args:
         location: (row, col) 튜플
         size: 그리드 크기 (5,6,7,8)
@@ -416,11 +458,27 @@ def click_cell(window_title, location, size, right_click=False):
     return click_window_position(window_title, coords[0], coords[1], right_click)
 
 
+def click_hints(window_title, hints, size):
+    """
+    여러 힌트를 클릭합니다.
+
+    Args:
+        hints: [{'type': 'safe' or 'mine', 'location': (row, col)}, ...] 리스트
+        size: 그리드 크기 (5, 6, 7, 8)
+    """
+    clicks = []
+    for hint in hints:
+        location = hint['location']
+        relative_x, relative_y = location_to_cell_coordinates(location, size)
+        button_type = 'left' if hint['type'] == 'safe' else 'right'
+        clicks.append((relative_x, relative_y, button_type))
+    return batch_click_positions(window_title, clicks)
+
+
 def input_spacebar(window_title):
     """
     대상 창을 활성화하고 스페이스바를 입력합니다.
     """
     target_window = gw.getWindowsWithTitle(window_title)[0]
     target_window.activate()
-    time.sleep(0.1)
     pyautogui.press('space')

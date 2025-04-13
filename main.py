@@ -4,8 +4,17 @@ from PyQt5.QtWidgets import QApplication
 
 from window import window
 
-if __name__ == "__main__":
+
+def main():
+    conf = {
+        'window_title': "Minesweeper Variants",
+        'cell_size': 7,
+    }
     app = QApplication(sys.argv)
-    main_window = window.MyWindow()
+    main_window = window.MyWindow(conf)
     main_window.show()
     sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    main()
