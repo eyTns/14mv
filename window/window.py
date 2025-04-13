@@ -1,7 +1,3 @@
-import random
-import time
-
-from PyQt5 import QtCore
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import (
     QApplication,
@@ -23,6 +19,8 @@ from window.utils import (
     find_common_areas,
     find_single_clickable_cells,
     input_spacebar,
+    completed_check,
+    next_level,
 )
 
 
@@ -84,11 +82,12 @@ class ControlFrame(QFrame):
 
 
 class MyWindow(QMainWindow):
-    def __init__(self, conf):
+    def __init__(self, conf:dict[str, str]):
         super().__init__()
 
         self.conf = conf
         self.window_title = conf["window_title"]
+        self.rule = conf["rule"].upper()
         self.cell_size = conf["cell_size"]
 
         self.setWindowTitle("14mv solve")
@@ -108,14 +107,19 @@ class MyWindow(QMainWindow):
         main_layout.addWidget(self.control_frame)
 
         self.process_game_data()
-        input_spacebar(self.window_title)
         self.setup_window_geometry()
 
     def process_game_data(self):
         save_path = f"{self.window_title}.png"
+
+        if completed_check(save_path):
+            next_level(self.window_title)
+            self.recapture()
+            return
+
         best_fit_cells = find_best_fit_cells(save_path, self.cell_size)
         numeric_grid = convert_to_numeric(best_fit_cells)
-        number_cells_info = analyze_number_cells(numeric_grid)
+        number_cells_info = analyze_number_cells(numeric_grid, self.rule)
 
         hints_single = find_single_clickable_cells(number_cells_info)
         hints_double = find_common_areas(number_cells_info)

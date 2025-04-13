@@ -213,31 +213,85 @@ def get_neighboring_cells_with_indices(row, col, grid):
     return neighbors
 
 
-def get_neighboring_blanks(row, col, grid):
+def get_neighboring_blanks(grid, rule, row, col):
+    """
+    주어진 셀의 이웃한 빈 칸들을 찾습니다.
+
+    Args:
+        grid (list): 게임 그리드
+        rule (str): "V" 또는 "X" - 이웃을 찾는 규칙
+            V: 주변 8방향의 1칸
+            X: 상하좌우 방향으로 1-2칸
+        row (int): 현재 셀의 행 번호
+        col (int): 현재 셀의 열 번호
+
+    Returns:
+        tuple: (남은 지뢰 수, 이웃한 빈 칸들의 위치 목록)
+    """
     neighboring_blanks = []
     mines_to_place = grid[row][col]
 
-    for dr in [-1, 0, 1]:
-        for dc in [-1, 0, 1]:
-            r, c = row + dr, col + dc
+    if rule == "V":
+        directions = [
+            (-1, -1),
+            (-1, 0),
+            (-1, 1),
+            (0, -1),
+            (0, 1),
+            (1, -1),
+            (1, 0),
+            (1, 1),
+        ]
+    elif rule == "X":
+        directions = [
+            (-1, 0),
+            (-2, 0),
+            (1, 0),
+            (2, 0),
+            (0, -1),
+            (0, -2),
+            (0, 1),
+            (0, 2),
+        ]
+    elif rule == "X'":
+        directions = [
+            (-1, 0),
+            (1, 0),
+            (0, -1),
+            (0, 1),
+        ]
+    elif rule == "K":
+        directions = [
+            (-2, -1),
+            (-2, 1),
+            (-1, -2),
+            (-1, 2),
+            (1, -2),
+            (1, 2),
+            (2, -1),
+            (2, 1),
+        ]
+    else:
+        raise ValueError("Invalid rule. Available rules: 'V', 'X', 'X', 'K'")
 
-            if 0 <= r < len(grid) and 0 <= c < len(grid[0]) and (r != row or c != col):
-                neighbor_value = grid[r][c]
-
-                if neighbor_value == -1:
-                    neighboring_blanks.append((r, c))
-                elif neighbor_value == -2:
-                    mines_to_place -= 1
+    for dr, dc in directions:
+        r = row + dr
+        c = col + dc
+        if 0 <= r < len(grid) and 0 <= c < len(grid[0]):
+            if grid[r][c] == -1:
+                neighboring_blanks.append((r, c))
+            elif grid[r][c] == -2:
+                mines_to_place -= 1
 
     return mines_to_place, neighboring_blanks
 
 
-def analyze_number_cells(grid):
+def analyze_number_cells(grid, rule):
     number_cells_info = {}
     for r in range(len(grid)):
         for c in range(len(grid[0])):
             if grid[r][c] >= 0:  # 숫자 칸인 경우
-                mines_needed, blank_cells = get_neighboring_blanks(r, c, grid)
+                mines_needed, blank_cells = get_neighboring_blanks(grid, rule, r, c)
                 if blank_cells:
                     number_cells_info[(r, c)] = {
                         "value": grid[r][c],
@@ -301,33 +355,17 @@ def find_common_areas(number_cells_info):
             need2 = info2["mines_needed"]
             blank1 = len(blanks1_set - blanks2_set)
             blank2 = len(blanks2_set - blanks1_set)
-            blankc = len(common_blanks)
 
-            # if (r1, c1) == (4, 2) and (r2, c2) == (5, 2):
-            #     print(f"Only in cell 1: {only_in_cell1}")
-            #     print(f"Only in cell 2: {only_in_cell2}")
-            #     print(f"Common blanks: {common_blanks}")
-            #     print(f"Mines needed 1: {need1}")
-            #     print(f"Mines needed 2: {need2}")
-
-            if blank1 <= need1 - need2 and need1 > need2:
+            if blank1 <= need1 - need2:
                 for blank_r, blank_c in only_in_cell1:
                     hints.append({"type": "mine", "location": (blank_r, blank_c)})
                 for blank_r, blank_c in only_in_cell2:
                     hints.append({"type": "safe", "location": (blank_r, blank_c)})
 
-            if blank2 <= need2 - need1 and need2 > need1:
+            if blank2 <= need2 - need1:
                 for blank_r, blank_c in only_in_cell2:
                     hints.append({"type": "mine", "location": (blank_r, blank_c)})
                 for blank_r, blank_c in only_in_cell1:
-                    hints.append({"type": "safe", "location": (blank_r, blank_c)})
-
-            if need1 <= need2 - blank2:
-                for blank_r, blank_c in only_in_cell1:
-                    hints.append({"type": "safe", "location": (blank_r, blank_c)})
-
-            if need1 - blank1 >= need2:
-                for blank_r, blank_c in only_in_cell2:
                     hints.append({"type": "safe", "location": (blank_r, blank_c)})
 
     return hints
@@ -386,6 +424,7 @@ def click_window_position(window_title, relative_x, relative_y, right_click=Fals
             pyautogui.rightClick()
         else:
             pyautogui.click()
+        pyautogui.moveTo(target_window.left + 100, target_window.top + 100)
         pyautogui.moveTo(original_x, original_y)
         pyautogui.FAILSAFE = True
         return True
@@ -411,7 +450,6 @@ def batch_click_positions(window_title, clicks):
         original_x, original_y = pyautogui.position()
         pyautogui.FAILSAFE = False
 
-        # 각 위치에서 지정된 방식으로 클릭
         for relative_x, relative_y, button_type in clicks:
             absolute_x = target_window.left + relative_x
             absolute_y = target_window.top + relative_y
@@ -424,7 +462,7 @@ def batch_click_positions(window_title, clicks):
             else:
                 print(f"Warning: Unknown button type '{button_type}', skipping click")
 
-        # 원래 마우스 위치로 복귀
+        pyautogui.moveTo(target_window.left + 100, target_window.top + 100)
         pyautogui.moveTo(original_x, original_y)
         pyautogui.FAILSAFE = True
 
@@ -465,6 +503,29 @@ def click_hints(window_title, hints, size):
     return batch_click_positions(window_title, clicks)
 
 
+def completed_check(screenshot_path):
+    """
+    스크린샷에서 지정된 두 좌표의 픽셀이 모두 노란색(FFFF00)인지 확인합니다.
+    
+    Args:
+        screenshot_path (str): 스크린샷 이미지 파일 경로
+
+    Returns:
+        bool: 두 픽셀이 모두 노란색이면 True, 아니면 False
+    """
+    try:
+        screenshot = imread(screenshot_path)
+        if screenshot is None:
+            return False
+        yellow = (0, 255, 255)
+        color1 = screenshot[51, 833]
+        color2 = screenshot[65, 868]
+        return (color1 == yellow).all() and (color2 == yellow).all()
+    except Exception as e:
+        print(f"Error checking pixel colors: {e}")
+        return False
+
+
 def input_spacebar(window_title):
     """
     대상 창을 활성화하고 스페이스바를 입력합니다.
@@ -472,3 +533,8 @@ def input_spacebar(window_title):
     target_window = gw.getWindowsWithTitle(window_title)[0]
     target_window.activate()
     pyautogui.press("space")
+
+
+def next_level(window_title):
+    input_spacebar(window_title)
+    click_window_position(window_title, 564, 484)
