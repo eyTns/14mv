@@ -1,169 +1,85 @@
 import random
+import time
 
 from PyQt5 import QtCore
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (QFrame, QGridLayout, QLabel, QMainWindow,
-                             QTableWidget, QTableWidgetItem, QVBoxLayout,
-                             QWidget, QPushButton, QApplication)
+from PyQt5.QtWidgets import (QApplication, QFrame, QGridLayout, QLabel,
+                             QMainWindow, QPushButton, QTableWidget,
+                             QTableWidgetItem, QVBoxLayout, QWidget)
 
-from window.utils import (
-    capture_window_screenshot, 
-    find_best_fit_cells, 
-    convert_to_numeric, 
-    analyze_number_cells, 
-    find_common_areas,
-    find_single_cell_hints,
-)
+from window.utils import (analyze_number_cells, capture_window_screenshot,
+                          click_cell, convert_to_numeric, find_best_fit_cells,
+                          find_common_areas, find_single_cell_hints, input_spacebar)
 
 
-class MyWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
 
-        self.setWindowTitle("14mv hint")
 
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
 
-        main_layout = QVBoxLayout()
-        central_widget.setLayout(main_layout)
+class HeaderFrame(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        label = QLabel("Hello")
+        layout.addWidget(label)
 
-        # First Frame
-        frame1 = QLabel("Hello")
-        main_layout.addWidget(frame1)
 
-        # Second Frame
-        frame2 = QFrame()
-        frame2.setStyleSheet("background-color: lightgray;")
-        main_layout.addWidget(frame2)
-        grid_layout = QGridLayout()
-        grid_layout.setSpacing(0)
-        grid_layout.setContentsMargins(10, 10, 10, 10)
-        frame2.setLayout(grid_layout)
+class GridFrame(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet("background-color: lightgray;")
+        layout = QGridLayout()
+        layout.setSpacing(0)
+        layout.setContentsMargins(10, 10, 10, 10)
+        self.setLayout(layout)
 
-        # 랜덤한 숫자를 표시
-        # for row in range(8):
-        #     for col in range(8):
-        #         # image_path = f"images/cell_{(row*8 + col)%9+1}.png"
-        #         image_path = f"images/cell_{random.randint(1, 9)}.png"
-        #         pixmap = QPixmap(image_path)
-        #         label = QLabel()
-        #         label.setPixmap(pixmap)
-        #         grid_layout.addWidget(label, row, col)
 
-        # Third Frame
-        window_title = "Minesweeper Variants"
+class ScreenshotFrame(QFrame):
+    def __init__(self, window_title, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
         save_path = f"{window_title}.png"
         capture_window_screenshot(window_title, save_path)
-        if capture_window_screenshot(window_title, save_path):
-            print(f"Screenshot saved as {save_path}")
-        else:
-            print("Failed to capture screenshot")
-
-        frame3 = QLabel()
-        frame3.setPixmap(QPixmap(save_path))
-        main_layout.addWidget(frame3)
-
-        # # Fourth Frame
-        # screenshot_path = save_path
-        # template_path = "images/cell_blank.png"
-        # positions = find_all_templates_in_screenshot(screenshot_path, template_path)
-
-        # if positions:
-        #     print(f"Found {len(positions)} occurrences of the template image at positions:")
-        #     for position in positions:
-        #         print(position)
-        # else:
-        #     print(f"Template {template_path} not found in the screenshot.")
-
-        # Fourth Frame
-        screenshot_path = save_path
-        cell_size = 6
-        best_fit_cells = find_best_fit_cells(screenshot_path, cell_size)
-        print(best_fit_cells)
-
-        # frame4 = QFrame()
-        # layout = QVBoxLayout()
-        # # Create a QTableWidget with 6 rows and 6 columns
-        # table = QTableWidget(6, 6)
-        # for i, row in enumerate(best_fit_cells):
-        #     for j, cell in enumerate(row):
-        #         item = QTableWidgetItem(cell)
-        #         table.setItem(i, j, item)
-        # layout.addWidget(table)
-        # frame4.setLayout(layout)
-        # main_layout.addWidget(frame4)
+        
+        label = QLabel()
+        label.setPixmap(QPixmap(save_path))
+        layout.addWidget(label)
 
 
-
-        # # Fifth Frame
-        # for i in range(1, 9+1):
-        #     screenshot_path = save_path
-        #     template_path = f"images/cell_{i}.png"
-        #     positions = find_all_templates_in_screenshot(screenshot_path, template_path)
-
-        #     if positions:
-        #         print(f"Found {len(positions)} occurrences of the template cell {i} at positions:")
-        #         for position in positions:
-        #             print(position)
-        #     else:
-        #         print(f"Template {template_path} not found in the screenshot.")
-
-
-        # Fifth Frame
-        numeric_grid = convert_to_numeric(best_fit_cells)
-        print(numeric_grid)
-        number_cells_info = analyze_number_cells(numeric_grid)
-        print(number_cells_info)
-        hints_single = find_single_cell_hints(number_cells_info)
-        print(hints_single)
-        hints_double = find_common_areas(number_cells_info)
-        print(hints_double)
-
-        all_hints = hints_single + hints_double
-
-        frame5 = QFrame()
-        layout5 = QVBoxLayout(frame5)
-
+class HintsFrame(QFrame):
+    def __init__(self, hints_data, parent=None):
+        super().__init__(parent)
+        self.layout = QVBoxLayout(self)
+        self.create_hints_display(hints_data)
+    
+    def create_hints_display(self, hints_data):
+        safe_hints, mine_hints = self.process_hints(hints_data)
+        self.add_hints_section("안전한 셀:", safe_hints, "green")
+        self.add_hints_section("지뢰 셀:", mine_hints, "red")
+    
+    def process_hints(self, all_hints):
         safe_hints = sorted(list({h['location'] for h in all_hints if h['type'] == 'safe'}))
         mine_hints = sorted(list({h['location'] for h in all_hints if h['type'] == 'mine'}))
+        return safe_hints, mine_hints
+    
+    def add_hints_section(self, title, hints, color):
+        section = QLabel(title)
+        section.setStyleSheet(f"font-weight: bold; color: {color};")
+        self.layout.addWidget(section)
         
-        safe_section = QLabel("안전한 셀:")
-        safe_section.setStyleSheet("font-weight: bold; color: green;")
-        layout5.addWidget(safe_section)
-        for hint in safe_hints:
+        for hint in hints:
             row, col = hint
             location_str = f"{row+1}{chr(65+col)}"
             hint_label = QLabel(f"• {location_str}")
             font = hint_label.font()
             font.setPointSize(12)
             hint_label.setFont(font)
-            layout5.addWidget(hint_label)
+            self.layout.addWidget(hint_label)
 
-        mine_section = QLabel("지뢰 셀:")
-        mine_section.setStyleSheet("font-weight: bold; color: red;")
-        layout5.addWidget(mine_section)
-        for hint in mine_hints:
-            row, col = hint
-            location_str = f"{row+1}{chr(65+col)}"
-            hint_label = QLabel(f"• {location_str}")
-            font = hint_label.font()
-            font.setPointSize(12)
-            hint_label.setFont(font)
-            layout5.addWidget(hint_label)
-
-        main_layout.addWidget(frame5)
-
-
-
-
-
-
-
-        # Sixth Frame
-        frame6 = QFrame()
-        layout6 = QVBoxLayout(frame6)
-
+class ControlFrame(QFrame):
+    def __init__(self, recapture_callback, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        
         recapture_button = QPushButton("Recapture")
         recapture_button.setStyleSheet("""
             QPushButton {
@@ -181,28 +97,83 @@ class MyWindow(QMainWindow):
                 background-color: #3d8b40;
             }
         """)
-
-        def recapture():
-            self.close()
-            self.__init__()
-            self.show()
-        recapture_button.clicked.connect(recapture)
-        layout6.addWidget(recapture_button)
-        main_layout.addWidget(frame6)
+        recapture_button.clicked.connect(recapture_callback)
+        layout.addWidget(recapture_button)
 
 
 
-        # Last Frame
-        frame_last = QLabel("Bye")
-        main_layout.addWidget(frame_last)
+class MyWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
 
-        # Fix the window size, position
+        window_title = "Minesweeper Variants"
+        save_path = f"{window_title}.png"
+        cell_size = 6
+
+        self.setWindowTitle("14mv solve")
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QVBoxLayout()
+        central_widget.setLayout(main_layout)
+
+        self.header_frame = HeaderFrame()
+        self.grid_frame = GridFrame()
+        self.screenshot_frame = ScreenshotFrame("Minesweeper Variants")
+        hints_data = self.process_game_data()
+        self.hints_frame = HintsFrame(hints_data)
+        self.control_frame = ControlFrame(self.recapture)
+
+        main_layout.addWidget(self.header_frame)
+        main_layout.addWidget(self.grid_frame)
+        main_layout.addWidget(self.screenshot_frame)
+        main_layout.addWidget(self.hints_frame)
+        main_layout.addWidget(self.control_frame)
+
+        all_hints = hints_data
+        safe_hints = sorted(list({h['location'] for h in all_hints if h['type'] == 'safe'}))
+        mine_hints = sorted(list({h['location'] for h in all_hints if h['type'] == 'mine'}))
+        if safe_hints or mine_hints:
+            for hint in safe_hints:
+                print(f"safe: {hint}")
+                click_cell(window_title, hint, cell_size, right_click=False)
+            for hint in mine_hints:
+                print(f"mine: {hint}")
+                click_cell(window_title, hint, cell_size, right_click=True)
+            self.recapture()
+            return
+        
+        input_spacebar(window_title)
+        self.setup_window_geometry()
+
+
+    def process_game_data(self):
+        window_title = "Minesweeper Variants"
+        save_path = f"{window_title}.png"
+        cell_size = 6
+        best_fit_cells = find_best_fit_cells(save_path, cell_size)
+        numeric_grid = convert_to_numeric(best_fit_cells)
+        number_cells_info = analyze_number_cells(numeric_grid)
+        hints_single = find_single_cell_hints(number_cells_info)
+        hints_double = find_common_areas(number_cells_info)
+        return hints_single + hints_double
+
+
+    def setup_window_geometry(self):
         screen = QApplication.primaryScreen().geometry()
         window_size = self.sizeHint()
         self.setFixedSize(window_size)
-        self.setGeometry(screen.width() - window_size.width(), 30,
-                        window_size.width(), window_size.height())
+        self.setGeometry(
+            screen.width() - window_size.width(), 
+            30,
+            window_size.width(), 
+            window_size.height()
+        )
 
+
+    def recapture(self):
+        self.close()
+        self.__init__()
+        self.show()
 
 
 

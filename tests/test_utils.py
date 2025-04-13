@@ -5,13 +5,10 @@ import pytest
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from window import utils
-from window.utils import (convert_to_numeric,
+from window.utils import (analyze_number_cells, convert_to_numeric,
+                          find_common_areas, find_single_cell_hints,
                           get_neighboring_cells,
-                          get_neighboring_cells_with_indices,
-                          analyze_number_cells,
-                          find_single_cell_hints,
-                          find_common_areas,
-                          )
+                          get_neighboring_cells_with_indices)
 from window.window import MyWindow
 
 

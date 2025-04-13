@@ -1,7 +1,9 @@
 import os
+import time
 
 import cv2
 import numpy as np
+import pyautogui
 import pygetwindow as gw
 from PIL import Image, ImageGrab
 
@@ -37,6 +39,7 @@ def capture_window_screenshot(window_title, save_path):
         target_window = gw.getWindowsWithTitle(window_title)[0]
         target_window.activate()
         x, y, width, height = target_window.left, target_window.top, target_window.width, target_window.height
+        time.sleep(0.2)
         screenshot = ImageGrab.grab(bbox=(x, y, x + width, y + height))
         screenshot.save(save_path)
         return True
@@ -320,10 +323,83 @@ def find_common_areas(number_cells_info):
     return hints
 
 
-def print_hints(hints):
-    for hint in hints:
-        # row num: +1
-        # column: 0~7 to ABCDEFGH
-        hint['location'] = (hint['location'][0]+1, chr(65+hint['location'][1]))
-        hint['type'] = hint['type'].capitalize()
-        print(f"{hint['type']}: {hint['location']}")
+def location_to_cell_coordinates(location, size):
+    """
+    Convert a location (row, col) to cell coordinates (x, y)
+    
+    Args:
+        location: tuple of (row, col)
+        size: integer representing the grid size (5, 6, 7, or 8)
+    
+    Returns:
+        tuple: (x, y) coordinates of the center of the cell
+    """
+    if size not in size_to_initial_position_dict:
+        raise ValueError("Invalid size. Size should be 5, 6, 7, or 8.")
+    
+    row, col = location
+    if not (0 <= row < size and 0 <= col < size):
+        raise ValueError(f"Invalid location. Row and column should be between 0 and {size-1}")
+    
+    initial_x, initial_y = size_to_initial_position_dict[size]
+    x_increment, y_increment = 50, 50
+    
+    x1 = initial_x + col * x_increment
+    y1 = initial_y + row * y_increment
+    x2 = x1 + x_increment//2
+    y2 = y1 + y_increment//2
+    return (x2, y2)
+
+
+def click_window_position(window_title, relative_x, relative_y, right_click=False):
+    """
+    창을 활성화하고 지정된 상대 좌표를 클릭합니다.
+    
+    Args:
+        window_title (str): 대상 창의 제목
+        relative_x (int): 창 내부의 x 좌표
+        relative_y (int): 창 내부의 y 좌표
+        right_click (bool): True면 우클릭, False면 좌클릭
+    """
+    try:
+        target_window = gw.getWindowsWithTitle(window_title)[0]
+        target_window.activate()
+        time.sleep(0.1)
+        absolute_x = target_window.left + relative_x
+        absolute_y = target_window.top + relative_y
+        original_x, original_y = pyautogui.position()
+        pyautogui.FAILSAFE = False
+        pyautogui.moveTo(absolute_x, absolute_y)
+        if right_click:
+            pyautogui.rightClick()
+        else:
+            pyautogui.click()
+        pyautogui.moveTo(original_x, original_y)
+        pyautogui.FAILSAFE = True
+        return True
+    except Exception as e:
+        print(f"Error clicking position: {e}")
+        return False
+
+
+def click_cell(window_title, location, size, right_click=False):
+    """
+    주어진 location의 셀을 클릭합니다.
+    
+    Args:
+        location: (row, col) 튜플
+        size: 그리드 크기 (5,6,7,8)
+        right_click: True면 우클릭, False면 좌클릭
+    """
+    coords = location_to_cell_coordinates(location, size)
+    return click_window_position(window_title, coords[0], coords[1], right_click)
+
+
+def input_spacebar(window_title):
+    """
+    대상 창을 활성화하고 스페이스바를 입력합니다.
+    """
+    target_window = gw.getWindowsWithTitle(window_title)[0]
+    target_window.activate()
+    time.sleep(0.1)
+    pyautogui.press('space')

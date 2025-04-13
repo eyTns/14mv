@@ -1,13 +1,13 @@
 import os
 import sys
 
+import cv2
+import numpy as np
 import pytest
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from window import utils
 from window.window import MyWindow
-import numpy as np
-import cv2
 
 
 @pytest.fixture
