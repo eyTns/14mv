@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QApplication, QFrame, QGridLayout, QLabel,
 
 from window.utils import (analyze_number_cells, capture_window_screenshot,
                           click_cell, convert_to_numeric, find_best_fit_cells,
-                          find_common_areas, find_single_cell_hints, input_spacebar)
+                          find_common_areas, find_single_cell_hints, input_spacebar, find_single_clickable_cells)
 
 
 
@@ -49,12 +49,6 @@ class HintsFrame(QFrame):
     def __init__(self, hints_data, parent=None):
         super().__init__(parent)
         self.layout = QVBoxLayout(self)
-        self.create_hints_display(hints_data)
-    
-    def create_hints_display(self, hints_data):
-        safe_hints, mine_hints = self.process_hints(hints_data)
-        self.add_hints_section("안전한 셀:", safe_hints, "green")
-        self.add_hints_section("지뢰 셀:", mine_hints, "red")
     
     def process_hints(self, all_hints):
         safe_hints = sorted(list({h['location'] for h in all_hints if h['type'] == 'safe'}))
@@ -118,30 +112,17 @@ class MyWindow(QMainWindow):
 
         self.header_frame = HeaderFrame()
         self.grid_frame = GridFrame()
-        self.screenshot_frame = ScreenshotFrame("Minesweeper Variants")
-        hints_data = self.process_game_data()
-        self.hints_frame = HintsFrame(hints_data)
+        self.screenshot_frame = ScreenshotFrame(window_title)
+        # self.hints_frame = HintsFrame(hints_data)
         self.control_frame = ControlFrame(self.recapture)
 
         main_layout.addWidget(self.header_frame)
         main_layout.addWidget(self.grid_frame)
         main_layout.addWidget(self.screenshot_frame)
-        main_layout.addWidget(self.hints_frame)
+        # main_layout.addWidget(self.hints_frame)
         main_layout.addWidget(self.control_frame)
 
-        all_hints = hints_data
-        safe_hints = sorted(list({h['location'] for h in all_hints if h['type'] == 'safe'}))
-        mine_hints = sorted(list({h['location'] for h in all_hints if h['type'] == 'mine'}))
-        if safe_hints or mine_hints:
-            for hint in safe_hints:
-                print(f"safe: {hint}")
-                click_cell(window_title, hint, cell_size, right_click=False)
-            for hint in mine_hints:
-                print(f"mine: {hint}")
-                click_cell(window_title, hint, cell_size, right_click=True)
-            self.recapture()
-            return
-        
+        self.process_game_data()
         input_spacebar(window_title)
         self.setup_window_geometry()
 
@@ -150,12 +131,33 @@ class MyWindow(QMainWindow):
         window_title = "Minesweeper Variants"
         save_path = f"{window_title}.png"
         cell_size = 6
+        
         best_fit_cells = find_best_fit_cells(save_path, cell_size)
         numeric_grid = convert_to_numeric(best_fit_cells)
         number_cells_info = analyze_number_cells(numeric_grid)
-        hints_single = find_single_cell_hints(number_cells_info)
+        
+        hints_single = find_single_clickable_cells(number_cells_info)
+        if hints_single:
+            self.process_hints(hints_single, window_title, cell_size)
+            self.recapture()
+            return
+        
         hints_double = find_common_areas(number_cells_info)
-        return hints_single + hints_double
+        if hints_double:
+            self.process_hints(hints_double, window_title, cell_size)
+            self.recapture()
+            return
+        
+
+    def process_hints(self, hints, window_title, cell_size):
+        safe_hints = sorted(list({h['location'] for h in hints if h['type'] == 'safe'}))
+        mine_hints = sorted(list({h['location'] for h in hints if h['type'] == 'mine'}))
+        for hint in safe_hints:
+            print(f"safe: {hint}")
+            click_cell(window_title, hint, cell_size, right_click=False)
+        for hint in mine_hints:
+            print(f"mine: {hint}")
+            click_cell(window_title, hint, cell_size, right_click=True)
 
 
     def setup_window_geometry(self):

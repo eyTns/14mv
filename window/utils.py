@@ -251,6 +251,27 @@ def find_single_cell_hints(number_cells_info):
     
     return hints
 
+
+def find_single_clickable_cells(number_cells_info):
+    hints = []
+
+    for (r, c), info in number_cells_info.items():
+        mines_needed = info['mines_needed']
+        blank_cells = info['blank_cells']
+        if mines_needed == 0 and len(blank_cells) > 0:
+            hints.append({
+                'type': 'safe',
+                'location': (r, c)
+            })
+        elif mines_needed == len(blank_cells) and mines_needed > 0:
+            hints.append({
+                'type': 'safe',
+                'location': (r, c)
+            })
+
+    return hints
+
+
 def find_common_areas(number_cells_info):
     hints = []
 
