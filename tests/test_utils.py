@@ -5,24 +5,71 @@ import pytest
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from window import utils
-from window.utils import (analyze_number_cells, convert_to_numeric,
-                          find_common_areas, find_single_cell_hints,
-                          get_neighboring_cells,
-                          get_neighboring_cells_with_indices)
+from window.utils import (
+    analyze_number_cells,
+    convert_to_numeric,
+    find_common_areas,
+    find_single_cell_hints,
+    get_neighboring_cells,
+    get_neighboring_cells_with_indices,
+)
 from window.window import MyWindow
 
 
 @pytest.fixture
 def sample_best_fit_cells():
     best_fit_cells = [
-        ['cell_1.png', 'cell_2.png', 'cell_3.png', 'cell_0.png', 'cell_5.png', 'cell_6.png'],
-        ['cell_7.png', 'cell_8.png', 'cell_blank.png', 'cell_flag.png', 'cell_question.png', 'cell_1.png'],
-        ['cell_2.png', 'cell_3.png', 'cell_4.png', 'cell_5.png', 'cell_6.png', 'cell_7.png'],
-        ['cell_8.png', 'cell_blank.png', 'cell_flag.png', 'cell_question.png', 'cell_1.png', 'cell_2.png'],
-        ['cell_3.png', 'cell_4.png', 'cell_5.png', 'cell_6.png', 'cell_7.png', 'cell_8.png'],
-        ['cell_blank.png', 'cell_flag.png', 'cell_question.png', 'cell_1.png', 'cell_2.png', 'cell_3.png']
+        [
+            "cell_1.png",
+            "cell_2.png",
+            "cell_3.png",
+            "cell_0.png",
+            "cell_5.png",
+            "cell_6.png",
+        ],
+        [
+            "cell_7.png",
+            "cell_8.png",
+            "cell_blank.png",
+            "cell_flag.png",
+            "cell_question.png",
+            "cell_1.png",
+        ],
+        [
+            "cell_2.png",
+            "cell_3.png",
+            "cell_4.png",
+            "cell_5.png",
+            "cell_6.png",
+            "cell_7.png",
+        ],
+        [
+            "cell_8.png",
+            "cell_blank.png",
+            "cell_flag.png",
+            "cell_question.png",
+            "cell_1.png",
+            "cell_2.png",
+        ],
+        [
+            "cell_3.png",
+            "cell_4.png",
+            "cell_5.png",
+            "cell_6.png",
+            "cell_7.png",
+            "cell_8.png",
+        ],
+        [
+            "cell_blank.png",
+            "cell_flag.png",
+            "cell_question.png",
+            "cell_1.png",
+            "cell_2.png",
+            "cell_3.png",
+        ],
     ]
     return best_fit_cells
+
 
 @pytest.fixture
 def sample_numeric_grid():
@@ -32,7 +79,7 @@ def sample_numeric_grid():
         [2, 3, 4, 5, 6, 7],
         [8, -1, -2, -3, 1, 2],
         [3, 4, 5, 6, 7, 8],
-        [-1, -2, -3, 1, 2, 3]
+        [-1, -2, -3, 1, 2, 3],
     ]
 
 
@@ -56,7 +103,16 @@ def test_get_neighboring_cells(sample_numeric_grid):
 # Test the get_neighboring_cells_with_indices function
 def test_get_neighboring_cells_with_indices(sample_numeric_grid):
     neighbors = get_neighboring_cells_with_indices(2, 3, sample_numeric_grid)
-    expected_neighbors = [(-1, 1, 2), (-2, 1, 3), (-3, 1, 4), (4, 2, 2), (6, 2, 4), (-2, 3, 2), (-3, 3, 3), (1, 3, 4)]
+    expected_neighbors = [
+        (-1, 1, 2),
+        (-2, 1, 3),
+        (-3, 1, 4),
+        (4, 2, 2),
+        (6, 2, 4),
+        (-2, 3, 2),
+        (-3, 3, 3),
+        (1, 3, 4),
+    ]
     assert neighbors == expected_neighbors
 
     neighbors = get_neighboring_cells_with_indices(2, 5, sample_numeric_grid)
@@ -70,22 +126,28 @@ def test_get_neighboring_cells_with_indices(sample_numeric_grid):
 
 def test_minesweeper_hints():
     grid = [
-        [-3, 1, 1, 3, -2, 3], 
-        [-1, 4, -1, -1, -2, -2], 
-        [-2, -2, -2, 6, -2, -2], 
-        [-1, -1, -2, 4, -2, 3], 
-        [-1, -1, 3, 3, 2, 1], 
-        [-1, -1, 2, -2, 1, 0]
+        [-3, 1, 1, 3, -2, 3],
+        [-1, 4, -1, -1, -2, -2],
+        [-2, -2, -2, 6, -2, -2],
+        [-1, -1, -2, 4, -2, 3],
+        [-1, -1, 3, 3, 2, 1],
+        [-1, -1, 2, -2, 1, 0],
     ]
-    
+
     number_cells_info = analyze_number_cells(grid)
     hints = find_common_areas(number_cells_info)
-    safe_cells = [(hint['location'][0], hint['location'][1]) 
-                 for hint in hints if hint['type'] == 'safe']
-    mine_cells = [(hint['location'][0], hint['location'][1]) 
-                 for hint in hints if hint['type'] == 'mine']
+    safe_cells = [
+        (hint["location"][0], hint["location"][1])
+        for hint in hints
+        if hint["type"] == "safe"
+    ]
+    mine_cells = [
+        (hint["location"][0], hint["location"][1])
+        for hint in hints
+        if hint["type"] == "mine"
+    ]
     expected_safe_cells = [(3, 1)]
-    
+
     print(f"생성된 힌트: {hints}")
     print(f"안전한 셀들: {safe_cells}")
     print(f"지뢰 셀들: {mine_cells}")
@@ -94,27 +156,32 @@ def test_minesweeper_hints():
         assert cell in safe_cells, f"{cell} 위치가 안전한 셀로 감지되지 않았습니다."
 
 
-
 def test_minesweeper_hints2():
     # 주어진 예제 grid
     grid = [
-        [-3, 1, 1, 3, -2, 3], 
-        [-1, 4, -1, -1, -2, -2], 
-        [-2, -2, -2, 6, -2, -2], 
-        [-1, -1, -2, 4, -2, 3], 
-        [-1, -1, 3, 3, 2, 1], 
-        [-1, -1, 2, -2, 1, 0]
+        [-3, 1, 1, 3, -2, 3],
+        [-1, 4, -1, -1, -2, -2],
+        [-2, -2, -2, 6, -2, -2],
+        [-1, -1, -2, 4, -2, 3],
+        [-1, -1, 3, 3, 2, 1],
+        [-1, -1, 2, -2, 1, 0],
     ]
-    
+
     number_cells_info = analyze_number_cells(grid)
     single_cell_hints = find_single_cell_hints(number_cells_info)
     common_area_hints = find_common_areas(number_cells_info)
     all_hints = single_cell_hints + common_area_hints
-    safe_cells = [(hint['location'][0], hint['location'][1]) 
-                 for hint in all_hints if hint['type'] == 'safe']
-    mine_cells = [(hint['location'][0], hint['location'][1]) 
-                 for hint in all_hints if hint['type'] == 'mine']
-    
+    safe_cells = [
+        (hint["location"][0], hint["location"][1])
+        for hint in all_hints
+        if hint["type"] == "safe"
+    ]
+    mine_cells = [
+        (hint["location"][0], hint["location"][1])
+        for hint in all_hints
+        if hint["type"] == "mine"
+    ]
+
     print(f"안전한 셀들: {safe_cells}")
     print(f"지뢰 셀들: {mine_cells}")
     assert (3, 1) in safe_cells, f"(3,1) 위치가 안전한 셀로 감지되지 않았습니다."
