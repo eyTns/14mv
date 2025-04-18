@@ -1,16 +1,32 @@
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (QApplication, QFrame, QGridLayout, QLabel,
-                             QMainWindow, QPushButton, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (
+    QApplication,
+    QFrame,
+    QGridLayout,
+    QLabel,
+    QMainWindow,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from window.image_utils import (
-                                capture_window_screenshot, 
-                                 convert_to_numeric,
-                                find_best_fit_cells, completed_check,
-                                 )
-from window.utils import (analyze_number_cells, 
-                          click_hints, 
-                           find_common_areas,
-                          find_single_clickable_cells, next_level)
+    capture_window_screenshot,
+    convert_to_numeric,
+    find_best_fit_cells,
+    completed_check,
+)
+from window.utils import (
+    analyze_number_cells,
+    analyze_regions,
+    click_hints,
+    find_common_areas,
+    find_triple_areas,
+    find_single_clickable_cells,
+    next_level,
+)
+
+import sys
 
 
 class HeaderFrame(QFrame):
@@ -36,7 +52,7 @@ class ScreenshotFrame(QFrame):
         super().__init__(parent)
         layout = QVBoxLayout(self)
         self.setLayout(layout)
-        
+
         label = QLabel()
         label.setPixmap(QPixmap(f"{window_title}.png"))
         layout.addWidget(label)
@@ -71,7 +87,7 @@ class ControlFrame(QFrame):
 
 
 class MyWindow(QMainWindow):
-    def __init__(self, conf:dict[str, str]):
+    def __init__(self, conf: dict[str, str]):
         super().__init__()
 
         self.conf = conf
@@ -94,7 +110,9 @@ class MyWindow(QMainWindow):
         self.header_frame = HeaderFrame()
         self.grid_frame = GridFrame()
         self.screenshot_frame = ScreenshotFrame(self.window_title)
-        self.control_frame = ControlFrame(self.start_new_process)  # 새로운 프로세스 시작 기능 연결
+        self.control_frame = ControlFrame(
+            self.start_new_process
+        )  # 새로운 프로세스 시작 기능 연결
 
         main_layout.addWidget(self.header_frame)
         main_layout.addWidget(self.grid_frame)
@@ -103,26 +121,34 @@ class MyWindow(QMainWindow):
 
     def process_game_data(self):
         save_path = f"{self.window_title}.png"
-        
+
         while True:
             capture_window_screenshot(self.window_title)
-            
+
             if completed_check(save_path):
                 next_level(self.window_title)
                 continue
-                
+
             best_fit_cells = find_best_fit_cells(save_path, self.cell_size)
             numeric_grid = convert_to_numeric(best_fit_cells)
-            number_cells_info = analyze_number_cells(numeric_grid, self.rule)
+            # number_cells_info = analyze_number_cells(numeric_grid, self.rule)
 
-            hints_single = find_single_clickable_cells(number_cells_info)
-            hints_double = sorted(list(set(find_common_areas(number_cells_info))))
-            
+            regions_info = analyze_regions(numeric_grid, self.rule)
+
+            hints_single = find_single_clickable_cells(regions_info)
             if hints_single:
                 click_hints(self.window_title, hints_single, self.cell_size)
                 continue
-            elif hints_double:
+
+            hints_double = sorted(list(set(find_common_areas(regions_info))))
+            if hints_double:
                 click_hints(self.window_title, hints_double, self.cell_size)
+                continue
+
+            hints_triple = sorted(list(set(find_triple_areas(regions_info))))
+            if hints_triple:
+                print(f"triple hints - {hints_triple}")
+                click_hints(self.window_title, hints_triple, self.cell_size)
                 continue
 
             break
@@ -130,10 +156,10 @@ class MyWindow(QMainWindow):
     def start_new_process(self):
         self.process_game_data()
 
-        if hasattr(self, 'screenshot_frame'):
-            for i in reversed(range(self.screenshot_frame.layout().count())): 
+        if hasattr(self, "screenshot_frame"):
+            for i in reversed(range(self.screenshot_frame.layout().count())):
                 self.screenshot_frame.layout().itemAt(i).widget().setParent(None)
-            
+
             label = QLabel()
             label.setPixmap(QPixmap(f"{self.window_title}.png"))
             self.screenshot_frame.layout().addWidget(label)

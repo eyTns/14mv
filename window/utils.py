@@ -1,8 +1,9 @@
 import time
+from pydantic import BaseModel
 
 import pyautogui
 import pygetwindow as gw
-from window.image_utils import imread
+from window.image_utils import size_to_initial_position_dict
 
 
 def get_neighboring_cells(row, col, grid):
@@ -41,9 +42,9 @@ def get_neighboring_blanks(grid, rule, row, col):
         tuple: (남은 지뢰 수, 이웃한 빈 칸들의 위치 목록)
     """
     neighboring_blanks = []
-    
+
     if row == -1 and col == -1:
-        mines_to_place = [0,0,0,0,0,10,14,20,26][len(grid)]
+        mines_to_place = [0, 0, 0, 0, 0, 10, 14, 20, 26][len(grid)]
         for r in range(len(grid)):
             for c in range(len(grid[0])):
                 if grid[r][c] == -2:
@@ -109,6 +110,12 @@ def get_neighboring_blanks(grid, rule, row, col):
     return mines_to_place, neighboring_blanks
 
 
+class Region(BaseModel):
+    value: int
+    mines_needed: int
+    total_blanks: int
+    blank_cells: list[tuple[int, int]]
+
 
 def analyze_number_cells(grid, rule):
     number_cells_info = {}
@@ -128,13 +135,44 @@ def analyze_number_cells(grid, rule):
     mines_needed, blank_cells = get_neighboring_blanks(grid, rule, -1, -1)
     if blank_cells:
         number_cells_info[(-1, -1)] = {
-            "value": [0,0,0,0,0,10,14,20,26][len(grid)],
+            "value": [0, 0, 0, 0, 0, 10, 14, 20, 26][len(grid)],
             "mines_needed": mines_needed,
             "total_blanks": len(blank_cells),
             "blank_cells": blank_cells,
         }
 
     return number_cells_info
+
+
+def analyze_regions(grid, rule) -> list[Region]:
+    regions = []
+
+    for r in range(len(grid)):
+        for c in range(len(grid[0])):
+            if grid[r][c] >= 0:
+                mines_needed, blank_cells = get_neighboring_blanks(grid, rule, r, c)
+                if blank_cells:
+                    regions.append(
+                        Region(
+                            value=grid[r][c],
+                            mines_needed=mines_needed,
+                            total_blanks=len(blank_cells),
+                            blank_cells=blank_cells,
+                        )
+                    )
+
+    mines_needed, blank_cells = get_neighboring_blanks(grid, rule, -1, -1)
+    if blank_cells:
+        regions.append(
+            Region(
+                value=[0, 0, 0, 0, 0, 10, 14, 20, 26][len(grid)],
+                mines_needed=mines_needed,
+                total_blanks=len(blank_cells),
+                blank_cells=blank_cells,
+            )
+        )
+
+    return regions
 
 
 def find_single_cell_hints(number_cells_info):
@@ -154,30 +192,28 @@ def find_single_cell_hints(number_cells_info):
     return hints
 
 
-def find_single_clickable_cells(number_cells_info):
+def find_single_clickable_cells(regions_info: list[Region]):
     hints = []
 
-    for (r, c), info in number_cells_info.items():
-        mines_needed = info["mines_needed"]
-        blank_cells = info["blank_cells"]
-        if mines_needed == 0 and len(blank_cells) > 0:
-            hints.append(("safe", (r, c)))
-        elif mines_needed == len(blank_cells) and mines_needed > 0:
-            hints.append(("safe", (r, c)))
+    for region in regions_info:
+        mines_needed = region.mines_needed
+        if region.mines_needed == 0 and len(region.blank_cells) > 0:
+            for blank_r, blank_c in region.blank_cells:
+                hints.append(("safe", (blank_r, blank_c)))
+        elif mines_needed == len(region.blank_cells) > 0:
+            for blank_r, blank_c in region.blank_cells:
+                hints.append(("mine", (blank_r, blank_c)))
 
     return hints
 
 
-def find_common_areas(number_cells_info):
+def find_common_areas(regions_info: list[Region]):
     hints = []
 
-    for (r1, c1), info1 in number_cells_info.items():
-        for (r2, c2), info2 in number_cells_info.items():
-            if (r1, c1) >= (r2, c2):
-                continue
-
-            blanks1_set = set(info1["blank_cells"])
-            blanks2_set = set(info2["blank_cells"])
+    for i, region1 in enumerate(regions_info):
+        for j, region2 in enumerate(regions_info[i + 1 :]):
+            blanks1_set = set(region1.blank_cells)
+            blanks2_set = set(region2.blank_cells)
             common_blanks = blanks1_set.intersection(blanks2_set)
 
             if not common_blanks:
@@ -186,10 +222,10 @@ def find_common_areas(number_cells_info):
             only_in_cell1 = blanks1_set - blanks2_set
             only_in_cell2 = blanks2_set - blanks1_set
 
-            need1 = info1["mines_needed"]
-            need2 = info2["mines_needed"]
-            blank1 = len(blanks1_set - blanks2_set)
-            blank2 = len(blanks2_set - blanks1_set)
+            need1 = region1.mines_needed
+            need2 = region2.mines_needed
+            blank1 = len(only_in_cell1)
+            blank2 = len(only_in_cell2)
 
             if blank1 <= need1 - need2:
                 for blank_r, blank_c in only_in_cell1:
@@ -202,6 +238,63 @@ def find_common_areas(number_cells_info):
                     hints.append(("mine", (blank_r, blank_c)))
                 for blank_r, blank_c in only_in_cell1:
                     hints.append(("safe", (blank_r, blank_c)))
+
+    return hints
+
+
+def find_triple_areas(regions_info: list[Region]):
+    hints = []
+
+    for i, region1 in enumerate(regions_info):
+        for j, region2 in enumerate(regions_info[i + 1 :], i + 1):
+            blanks1_set = set(region1.blank_cells)
+            blanks2_set = set(region2.blank_cells)
+            common_12 = blanks1_set.intersection(blanks2_set)
+            if common_12:
+                continue
+
+            # print("*****", i, j)
+
+            for k, region3 in enumerate(regions_info):
+                if i == k or j == k:
+                    continue
+                blanks3_set = set(region3.blank_cells)
+                common_13 = blanks1_set.intersection(blanks3_set)
+                common_23 = blanks2_set.intersection(blanks3_set)
+                if not common_13 or not common_23:
+                    continue
+
+                # print("*****", i, j, k)
+                # print(region1)
+                # print(region2)
+                # print(region3)
+
+                newr1 = Region(
+                    value=region1.value + region2.value,
+                    mines_needed=region1.mines_needed + region2.mines_needed,
+                    total_blanks=region1.total_blanks + region2.total_blanks,
+                    blank_cells=region1.blank_cells + region2.blank_cells,
+                )
+                newr2 = region3
+
+                only_in_cell1 = set(newr1.blank_cells) - set(newr2.blank_cells)
+                only_in_cell2 = set(newr2.blank_cells) - set(newr1.blank_cells)
+
+                need1 = newr1.mines_needed
+                need2 = newr2.mines_needed
+                blank1 = len(only_in_cell1)
+                blank2 = len(only_in_cell2)
+
+                if blank1 <= need1 - need2:
+                    for blank_r, blank_c in only_in_cell1:
+                        hints.append(("mine", (blank_r, blank_c)))
+                    for blank_r, blank_c in only_in_cell2:
+                        hints.append(("safe", (blank_r, blank_c)))
+                if blank2 <= need2 - need1:
+                    for blank_r, blank_c in only_in_cell2:
+                        hints.append(("mine", (blank_r, blank_c)))
+                    for blank_r, blank_c in only_in_cell1:
+                        hints.append(("safe", (blank_r, blank_c)))
 
     return hints
 
@@ -336,8 +429,6 @@ def click_hints(window_title, hints, size):
         button_type = "left" if hint[0] == "safe" else "right"
         clicks.append((relative_x, relative_y, button_type))
     return batch_click_positions(window_title, clicks)
-
-
 
 
 def input_spacebar(window_title):

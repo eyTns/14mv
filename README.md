@@ -6,7 +6,14 @@
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\.venv\Scripts\activate # 터미널 활성화를 해놓은 채로 main.py를 실행
+
+deactivate
+C:\dev\14mv\.venv\Scripts\activate
+
 pip install uv
+
+uv add pydantic
+uv add --active pydantic
 ```
 
 ## pyqt5 가 실행이 안되는 문제
@@ -17,7 +24,7 @@ This application failed to start because no Qt platform plugin could be initiali
 ```
 - 경로에 한글이 있어서 그렇다고 한다.
   - https://blog.naver.com/blueqnpfr1/221582202946
-- 유저명 바꿔야지...
+- C:\dev\14mv 에 따로 설치했다.
 
 
 

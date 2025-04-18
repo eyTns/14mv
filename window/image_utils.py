@@ -195,7 +195,7 @@ def convert_to_numeric(best_fit_cells):
 def completed_check(screenshot_path):
     """
     스크린샷에서 지정된 두 좌표의 픽셀이 모두 노란색(FFFF00)인지 확인합니다.
-    
+
     Args:
         screenshot_path (str): 스크린샷 이미지 파일 경로
 
