@@ -3,7 +3,11 @@ from pydantic import BaseModel
 
 import pyautogui
 import pygetwindow as gw
-from window.image_utils import size_to_initial_position_dict
+from window.image_utils import (
+    completed_check,
+    size_to_initial_position_dict,
+    capture_window_screenshot,
+)
 
 
 def get_neighboring_cells(row, col, grid):
@@ -440,6 +444,8 @@ def input_spacebar(window_title):
     pyautogui.press("space")
 
 
-def next_level(window_title):
-    input_spacebar(window_title)
-    click_window_position(window_title, 564, 484)
+def next_level_check(window_title, save_path):
+    capture_window_screenshot(window_title)
+    if completed_check(save_path):
+        input_spacebar(window_title)
+        click_window_position(window_title, 564, 484)

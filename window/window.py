@@ -23,7 +23,7 @@ from window.utils import (
     find_common_areas,
     find_triple_areas,
     find_single_clickable_cells,
-    next_level,
+    next_level_check,
 )
 
 import sys
@@ -124,31 +124,27 @@ class MyWindow(QMainWindow):
 
         while True:
             capture_window_screenshot(self.window_title)
-
-            if completed_check(save_path):
-                next_level(self.window_title)
-                continue
-
             best_fit_cells = find_best_fit_cells(save_path, self.cell_size)
             numeric_grid = convert_to_numeric(best_fit_cells)
-            # number_cells_info = analyze_number_cells(numeric_grid, self.rule)
-
             regions_info = analyze_regions(numeric_grid, self.rule)
 
             hints_single = find_single_clickable_cells(regions_info)
             if hints_single:
                 click_hints(self.window_title, hints_single, self.cell_size)
+                next_level_check(self.window_title, save_path)
                 continue
 
             hints_double = sorted(list(set(find_common_areas(regions_info))))
             if hints_double:
                 click_hints(self.window_title, hints_double, self.cell_size)
+                next_level_check(self.window_title, save_path)
                 continue
 
             hints_triple = sorted(list(set(find_triple_areas(regions_info))))
             if hints_triple:
                 print(f"triple hints - {hints_triple}")
                 click_hints(self.window_title, hints_triple, self.cell_size)
+                next_level_check(self.window_title, save_path)
                 continue
 
             break
