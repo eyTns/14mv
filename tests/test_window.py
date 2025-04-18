@@ -1,8 +1,5 @@
 import os
-import sys
 
-import cv2
-import numpy as np
 import pytest
 from PyQt5.QtWidgets import QApplication, QMainWindow
 

@@ -1,27 +1,16 @@
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (
-    QApplication,
-    QFrame,
-    QGridLayout,
-    QLabel,
-    QMainWindow,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QApplication, QFrame, QGridLayout, QLabel,
+                             QMainWindow, QPushButton, QVBoxLayout, QWidget)
 
-from window.utils import (
-    analyze_number_cells,
-    capture_window_screenshot,
-    click_hints,
-    convert_to_numeric,
-    find_best_fit_cells,
-    find_common_areas,
-    find_single_clickable_cells,
-    input_spacebar,
-    completed_check,
-    next_level,
-)
+from window.image_utils import (
+                                capture_window_screenshot, 
+                                 convert_to_numeric,
+                                find_best_fit_cells, completed_check,
+                                 )
+from window.utils import (analyze_number_cells, 
+                          click_hints, 
+                           find_common_areas,
+                          find_single_clickable_cells, next_level)
 
 
 class HeaderFrame(QFrame):
@@ -46,8 +35,8 @@ class ScreenshotFrame(QFrame):
     def __init__(self, window_title, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        capture_window_screenshot(window_title)
-
+        self.setLayout(layout)
+        
         label = QLabel()
         label.setPixmap(QPixmap(f"{window_title}.png"))
         layout.addWidget(label)
@@ -90,7 +79,13 @@ class MyWindow(QMainWindow):
         self.rule = conf["rule"].upper()
         self.cell_size = conf["cell_size"]
 
+        self.process_game_data()
+
         self.setWindowTitle("14mv solve")
+        self.setup_ui()
+        self.setup_window_geometry()
+
+    def setup_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout()
@@ -99,38 +94,49 @@ class MyWindow(QMainWindow):
         self.header_frame = HeaderFrame()
         self.grid_frame = GridFrame()
         self.screenshot_frame = ScreenshotFrame(self.window_title)
-        self.control_frame = ControlFrame(self.recapture)
+        self.control_frame = ControlFrame(self.start_new_process)  # 새로운 프로세스 시작 기능 연결
 
         main_layout.addWidget(self.header_frame)
         main_layout.addWidget(self.grid_frame)
         main_layout.addWidget(self.screenshot_frame)
         main_layout.addWidget(self.control_frame)
 
-        self.process_game_data()
-        self.setup_window_geometry()
-
     def process_game_data(self):
         save_path = f"{self.window_title}.png"
+        
+        while True:
+            capture_window_screenshot(self.window_title)
+            
+            if completed_check(save_path):
+                next_level(self.window_title)
+                continue
+                
+            best_fit_cells = find_best_fit_cells(save_path, self.cell_size)
+            numeric_grid = convert_to_numeric(best_fit_cells)
+            number_cells_info = analyze_number_cells(numeric_grid, self.rule)
 
-        if completed_check(save_path):
-            next_level(self.window_title)
-            self.recapture()
-            return
+            hints_single = find_single_clickable_cells(number_cells_info)
+            hints_double = sorted(list(set(find_common_areas(number_cells_info))))
+            
+            if hints_single:
+                click_hints(self.window_title, hints_single, self.cell_size)
+                continue
+            elif hints_double:
+                click_hints(self.window_title, hints_double, self.cell_size)
+                continue
 
-        best_fit_cells = find_best_fit_cells(save_path, self.cell_size)
-        numeric_grid = convert_to_numeric(best_fit_cells)
-        number_cells_info = analyze_number_cells(numeric_grid, self.rule)
+            break
 
-        hints_single = find_single_clickable_cells(number_cells_info)
-        hints_double = find_common_areas(number_cells_info)
-        if hints_single:
-            click_hints(self.window_title, hints_single, self.cell_size)
-            self.recapture()
-            return
-        elif hints_double:
-            click_hints(self.window_title, hints_double, self.cell_size)
-            self.recapture()
-            return
+    def start_new_process(self):
+        self.process_game_data()
+
+        if hasattr(self, 'screenshot_frame'):
+            for i in reversed(range(self.screenshot_frame.layout().count())): 
+                self.screenshot_frame.layout().itemAt(i).widget().setParent(None)
+            
+            label = QLabel()
+            label.setPixmap(QPixmap(f"{self.window_title}.png"))
+            self.screenshot_frame.layout().addWidget(label)
 
     def setup_window_geometry(self):
         screen = QApplication.primaryScreen().geometry()

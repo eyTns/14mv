@@ -1,19 +1,10 @@
-import os
-import sys
 
 import pytest
-from PyQt5.QtWidgets import QApplication, QMainWindow
 
-from window import utils
-from window.utils import (
-    analyze_number_cells,
-    convert_to_numeric,
-    find_common_areas,
-    find_single_cell_hints,
-    get_neighboring_cells,
-    get_neighboring_cells_with_indices,
-)
-from window.window import MyWindow
+from window.utils import (analyze_number_cells, convert_to_numeric,
+                          find_common_areas, find_single_cell_hints,
+                          get_neighboring_cells,
+                          get_neighboring_cells_with_indices)
 
 
 @pytest.fixture
@@ -151,7 +142,7 @@ def test_minesweeper_hints():
     print(f"생성된 힌트: {hints}")
     print(f"안전한 셀들: {safe_cells}")
     print(f"지뢰 셀들: {mine_cells}")
-    assert (3, 1) in safe_cells, f"(3,1) 위치가 안전한 셀로 감지되지 않았습니다."
+    assert (3, 1) in safe_cells, "(3,1) 위치가 안전한 셀로 감지되지 않았습니다."
     for cell in expected_safe_cells:
         assert cell in safe_cells, f"{cell} 위치가 안전한 셀로 감지되지 않았습니다."
 
@@ -184,4 +175,4 @@ def test_minesweeper_hints2():
 
     print(f"안전한 셀들: {safe_cells}")
     print(f"지뢰 셀들: {mine_cells}")
-    assert (3, 1) in safe_cells, f"(3,1) 위치가 안전한 셀로 감지되지 않았습니다."
+    assert (3, 1) in safe_cells, "(3,1) 위치가 안전한 셀로 감지되지 않았습니다."
