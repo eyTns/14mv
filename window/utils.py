@@ -302,22 +302,22 @@ def find_single_cell_hints(number_cells_info):
 
 
 def find_single_clickable_cells(regions_info: list[Region]):
-    hints = []
+    hints = set()
 
     for region in regions_info:
         mines_needed = region.mines_needed
         if region.mines_needed == 0 and len(region.blank_cells) > 0:
             for blank_r, blank_c in region.blank_cells:
-                hints.append(("safe", (blank_r, blank_c)))
+                hints.add(("safe", (blank_r, blank_c)))
         elif mines_needed == len(region.blank_cells) > 0:
             for blank_r, blank_c in region.blank_cells:
-                hints.append(("mine", (blank_r, blank_c)))
+                hints.add(("mine", (blank_r, blank_c)))
 
-    return sorted(list(set(hints)))
+    return hints
 
 
 def find_common_areas(regions_info: list[Region]):
-    hints = []
+    hints = set()
 
     for i, region1 in enumerate(regions_info):
         for j, region2 in enumerate(regions_info[i + 1 :]):
@@ -338,21 +338,21 @@ def find_common_areas(regions_info: list[Region]):
 
             if blank1 <= need1 - need2:
                 for blank_r, blank_c in only_in_cell1:
-                    hints.append(("mine", (blank_r, blank_c)))
+                    hints.add(("mine", (blank_r, blank_c)))
                 for blank_r, blank_c in only_in_cell2:
-                    hints.append(("safe", (blank_r, blank_c)))
+                    hints.add(("safe", (blank_r, blank_c)))
 
             if blank2 <= need2 - need1:
                 for blank_r, blank_c in only_in_cell2:
-                    hints.append(("mine", (blank_r, blank_c)))
+                    hints.add(("mine", (blank_r, blank_c)))
                 for blank_r, blank_c in only_in_cell1:
-                    hints.append(("safe", (blank_r, blank_c)))
+                    hints.add(("safe", (blank_r, blank_c)))
 
-    return sorted(list(set(hints)))
+    return hints
 
 
 def find_triple_areas(regions_info: list[Region]):
-    hints = []
+    hints = set()
 
     for i, region1 in enumerate(regions_info):
         for j, region2 in enumerate(regions_info[i + 1 :], i + 1):
@@ -396,20 +396,22 @@ def find_triple_areas(regions_info: list[Region]):
 
                 if blank1 <= need1 - need2:
                     for blank_r, blank_c in only_in_cell1:
-                        hints.append(("mine", (blank_r, blank_c)))
+                        hints.add(("mine", (blank_r, blank_c)))
                     for blank_r, blank_c in only_in_cell2:
-                        hints.append(("safe", (blank_r, blank_c)))
+                        hints.add(("safe", (blank_r, blank_c)))
                 if blank2 <= need2 - need1:
                     for blank_r, blank_c in only_in_cell2:
-                        hints.append(("mine", (blank_r, blank_c)))
+                        hints.add(("mine", (blank_r, blank_c)))
                     for blank_r, blank_c in only_in_cell1:
-                        hints.append(("safe", (blank_r, blank_c)))
+                        hints.add(("safe", (blank_r, blank_c)))
+                if hints:
+                    return hints
 
-    return sorted(list(set(hints)))
+    return hints
 
 
 def diff_regions(regions: list[Region]):
-    while len(regions)<1000:
+    while True:
         more_regions = []
         for ri, rj in combinations((regions), 2):
             if ri.total_blanks == rj.total_blanks:
@@ -420,13 +422,15 @@ def diff_regions(regions: list[Region]):
                 rk = rj - ri
                 if not rk in regions and not rk in more_regions:
                     more_regions.append(rk)
-                    if rk.mines_needed == 0 or rk.mines_needed==rk.total_blanks:
+                    if (
+                        rk.mines_needed == 0
+                        or rk.mines_needed==rk.total_blanks
+                        or len(regions) + len(more_regions) >=1000):
                         return regions + more_regions
         if more_regions:
             regions.extend(more_regions)
         else:
             return regions
-    return regions
 
 def location_to_cell_coordinates(location, size):
     """

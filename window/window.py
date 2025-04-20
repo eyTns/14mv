@@ -128,7 +128,8 @@ class MyWindow(QMainWindow):
             hints_single = find_single_clickable_cells(regions)
             hints_double = find_common_areas(regions)
             hints_triple = find_triple_areas(regions)
-            all_hints = sorted(list(set(hints_single + hints_double + hints_triple)))
+            all_hints = hints_single.union(hints_double).union(hints_triple)
+            # all_hints = sorted(list(set(hints_single + hints_double + hints_triple)))
             if all_hints:
                 click_hints(self.window_title, all_hints, self.cell_size)
                 next_level_check(self.window_title, save_path)
@@ -149,13 +150,13 @@ class MyWindow(QMainWindow):
                 click_hints(self.window_title, hints_double, self.cell_size)
                 next_level_check(self.window_title, save_path)
                 continue
-            hints_triple = find_triple_areas(regions)
-            if hints_triple:
-                print("hints_triple")
-                print(f"triple hints - {hints_triple}")
-                click_hints(self.window_title, hints_triple, self.cell_size)
-                next_level_check(self.window_title, save_path)
-                continue
+            # hints_triple = find_triple_areas(regions)
+            # if hints_triple:
+            #     print("hints_triple")
+            #     print(f"triple hints - {hints_triple}")
+            #     click_hints(self.window_title, hints_triple, self.cell_size)
+            #     next_level_check(self.window_title, save_path)
+            #     continue
 
             break
 
