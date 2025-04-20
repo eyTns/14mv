@@ -14,19 +14,15 @@ from window.image_utils import (
     capture_window_screenshot,
     convert_to_numeric,
     find_best_fit_cells,
-    completed_check,
 )
 from window.utils import (
-    analyze_number_cells,
     analyze_regions,
     click_hints,
     find_common_areas,
-    find_triple_areas,
     find_single_clickable_cells,
+    find_triple_areas,
     next_level_check,
 )
-
-import sys
 
 
 class HeaderFrame(QFrame):
@@ -128,22 +124,31 @@ class MyWindow(QMainWindow):
             numeric_grid = convert_to_numeric(best_fit_cells)
             regions_info = analyze_regions(numeric_grid, self.rule)
 
+            # hints_single = find_single_clickable_cells(regions_info)
+            # if hints_single:
+            #     click_hints(self.window_title, hints_single, self.cell_size)
+            #     next_level_check(self.window_title, save_path)
+            #     continue
+
+            # hints_double = find_common_areas(regions_info)
+            # if hints_double:
+            #     click_hints(self.window_title, hints_double, self.cell_size)
+            #     next_level_check(self.window_title, save_path)
+            #     continue
+
+            # hints_triple = find_triple_areas(regions_info)
+            # if hints_triple:
+            #     print(f"triple hints - {hints_triple}")
+            #     click_hints(self.window_title, hints_triple, self.cell_size)
+            #     next_level_check(self.window_title, save_path)
+            #     continue
+
             hints_single = find_single_clickable_cells(regions_info)
-            if hints_single:
-                click_hints(self.window_title, hints_single, self.cell_size)
-                next_level_check(self.window_title, save_path)
-                continue
-
-            hints_double = sorted(list(set(find_common_areas(regions_info))))
-            if hints_double:
-                click_hints(self.window_title, hints_double, self.cell_size)
-                next_level_check(self.window_title, save_path)
-                continue
-
-            hints_triple = sorted(list(set(find_triple_areas(regions_info))))
-            if hints_triple:
-                print(f"triple hints - {hints_triple}")
-                click_hints(self.window_title, hints_triple, self.cell_size)
+            hints_double = find_common_areas(regions_info)
+            hints_triple = find_triple_areas(regions_info)
+            all_hints = sorted(list(set(hints_single + hints_double + hints_triple)))
+            if all_hints:
+                click_hints(self.window_title, all_hints, self.cell_size)
                 next_level_check(self.window_title, save_path)
                 continue
 

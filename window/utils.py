@@ -1,12 +1,14 @@
 import time
-from pydantic import BaseModel
 
 import pyautogui
 import pygetwindow as gw
+from pydantic import BaseModel
+
 from window.image_utils import (
+    PuzzleStatus,
+    capture_window_screenshot,
     completed_check,
     size_to_initial_position_dict,
-    capture_window_screenshot,
 )
 
 
@@ -30,6 +32,144 @@ def get_neighboring_cells_with_indices(row, col, grid):
     return neighbors
 
 
+def get_total_mines(rule, cell_size):
+    if rule in ["V", "X", "X'", "K"]:
+        return [0, 0, 0, 0, 0, 10, 14, 20, 26][cell_size]
+    elif rule in ["B"]:
+        return [0, 0, 0, 0, 0, 10, 12, 21, 24][cell_size]
+    return None
+
+
+class Region(BaseModel):
+    value: int
+    mines_needed: int
+    total_blanks: int
+    blank_cells: list[tuple[int, int]]
+
+
+DIRECTIONS = {
+    "V": [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)],
+    "X": [(-2, 0), (-1, 0), (1, 0), (2, 0), (0, -2), (0, -1), (0, 1), (0, 2)],
+    "X'": [(-1, 0), (1, 0), (0, -1), (0, 1)],
+    "K": [(-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1)],
+    "B": [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)],
+}
+
+
+def get_cell_region(grid, rule, row, col) -> Region:
+    """
+    주어진 셀의 이웃한 빈 칸들을 찾습니다.
+
+    Args:
+        grid (list): 게임 그리드
+        rule (str): "V", "X" 등 - 이웃을 찾는 규칙
+            V: 주변 8방향의 1칸
+            X: 상하좌우 방향으로 1-2칸
+        row (int): 현재 셀의 행 번호
+        col (int): 현재 셀의 열 번호
+
+    Returns:
+        Region:
+    """
+    mines_needed = grid[row][col]
+    neighboring_blanks = []
+
+    if rule in ["V", "X", "X'", "K", "B"]:
+        directions = DIRECTIONS[rule]
+    else:
+        raise ValueError(f"Invalid rule. Available rules: {DIRECTIONS.keys()}")
+
+    for dr, dc in directions:
+        r = row + dr
+        c = col + dc
+        if 0 <= r < len(grid) and 0 <= c < len(grid[0]):
+            if grid[r][c] == -1:
+                neighboring_blanks.append((r, c))
+            elif grid[r][c] == -2:
+                mines_needed -= 1
+
+    if neighboring_blanks:
+        return Region(
+            value=grid[row][col],
+            mines_needed=mines_needed,
+            total_blanks=len(neighboring_blanks),
+            blank_cells=neighboring_blanks,
+        )
+    else:
+        return None
+
+
+def get_grid_region(grid, rule) -> Region:
+    """
+    주어진 그리드 전체에서 빈 칸들을 찾습니다.
+
+    Args:
+        grid (list): 게임 그리드
+        rule (str): "V", "X" 등 - 이웃을 찾는 규칙
+            V: 주변 8방향의 1칸
+            X: 상하좌우 방향으로 1-2칸
+
+    Returns:
+        Region
+    """
+    mine_value = get_total_mines(rule, len(grid))
+    mines_needed = mine_value
+    blanks = []
+
+    for r in range(len(grid)):
+        for c in range(len(grid[0])):
+            if grid[r][c] == -2:
+                mines_needed -= 1
+            elif grid[r][c] == -1:
+                blanks.append((r, c))
+
+    return Region(
+        value=mine_value,
+        mines_needed=mines_needed,
+        total_blanks=len(blanks),
+        blank_cells=blanks,
+    )
+
+
+def get_row_column_region(grid, rule, row, col) -> Region:
+    """
+    주어진 행 또는 열에서 빈 칸들을 찾습니다.
+
+    Args:
+        grid (list): 게임 그리드
+        rule (str): "V", "X" 등 - 이웃을 찾는 규칙
+            V: 주변 8방향의 1칸
+            X: 상하좌우 방향으로 1-2칸
+        row (int | None): 현재 셀의 행 번호
+        col (int | None): 현재 셀의 열 번호
+
+    Returns:
+        Region
+    """
+    mine_value = get_total_mines(rule, len(grid)) // len(grid)
+    mines_needed = mine_value
+    blanks = []
+
+    cells_to_check = []
+    if row is not None:
+        cells_to_check = [(row, c) for c in range(len(grid[0]))]
+    else:
+        cells_to_check = [(r, col) for r in range(len(grid))]
+
+    for r, c in cells_to_check:
+        if grid[r][c] == -2:
+            mines_needed -= 1
+        elif grid[r][c] == -1:
+            blanks.append((r, c))
+
+    return Region(
+        value=mine_value,
+        mines_needed=mines_needed,
+        total_blanks=len(blanks),
+        blank_cells=blanks,
+    )
+
+
 def get_neighboring_blanks(grid, rule, row, col):
     """
     주어진 셀의 이웃한 빈 칸들을 찾습니다.
@@ -48,7 +188,7 @@ def get_neighboring_blanks(grid, rule, row, col):
     neighboring_blanks = []
 
     if row == -1 and col == -1:
-        mines_to_place = [0, 0, 0, 0, 0, 10, 14, 20, 26][len(grid)]
+        mines_to_place = get_total_mines(rule, len(grid))
         for r in range(len(grid)):
             for c in range(len(grid[0])):
                 if grid[r][c] == -2:
@@ -59,48 +199,10 @@ def get_neighboring_blanks(grid, rule, row, col):
 
     mines_to_place = grid[row][col]
 
-    if rule == "V":
-        directions = [
-            (-1, -1),
-            (-1, 0),
-            (-1, 1),
-            (0, -1),
-            (0, 1),
-            (1, -1),
-            (1, 0),
-            (1, 1),
-        ]
-    elif rule == "X":
-        directions = [
-            (-1, 0),
-            (-2, 0),
-            (1, 0),
-            (2, 0),
-            (0, -1),
-            (0, -2),
-            (0, 1),
-            (0, 2),
-        ]
-    elif rule == "X'":
-        directions = [
-            (-1, 0),
-            (1, 0),
-            (0, -1),
-            (0, 1),
-        ]
-    elif rule == "K":
-        directions = [
-            (-2, -1),
-            (-2, 1),
-            (-1, -2),
-            (-1, 2),
-            (1, -2),
-            (1, 2),
-            (2, -1),
-            (2, 1),
-        ]
+    if rule in ["V", "X", "X'", "K", "B"]:
+        directions = DIRECTIONS[rule]
     else:
-        raise ValueError("Invalid rule. Available rules: 'V', 'X', 'X'', 'K'")
+        raise ValueError(f"Invalid rule. Available rules: {DIRECTIONS.keys()}")
 
     for dr, dc in directions:
         r = row + dr
@@ -112,13 +214,6 @@ def get_neighboring_blanks(grid, rule, row, col):
                 mines_to_place -= 1
 
     return mines_to_place, neighboring_blanks
-
-
-class Region(BaseModel):
-    value: int
-    mines_needed: int
-    total_blanks: int
-    blank_cells: list[tuple[int, int]]
 
 
 def analyze_number_cells(grid, rule):
@@ -139,7 +234,7 @@ def analyze_number_cells(grid, rule):
     mines_needed, blank_cells = get_neighboring_blanks(grid, rule, -1, -1)
     if blank_cells:
         number_cells_info[(-1, -1)] = {
-            "value": [0, 0, 0, 0, 0, 10, 14, 20, 26][len(grid)],
+            "value": get_total_mines(rule, len(grid)),
             "mines_needed": mines_needed,
             "total_blanks": len(blank_cells),
             "blank_cells": blank_cells,
@@ -154,29 +249,17 @@ def analyze_regions(grid, rule) -> list[Region]:
     for r in range(len(grid)):
         for c in range(len(grid[0])):
             if grid[r][c] >= 0:
-                mines_needed, blank_cells = get_neighboring_blanks(grid, rule, r, c)
-                if blank_cells:
-                    regions.append(
-                        Region(
-                            value=grid[r][c],
-                            mines_needed=mines_needed,
-                            total_blanks=len(blank_cells),
-                            blank_cells=blank_cells,
-                        )
-                    )
+                regions.append(get_cell_region(grid, rule, r, c))
 
-    mines_needed, blank_cells = get_neighboring_blanks(grid, rule, -1, -1)
-    if blank_cells:
-        regions.append(
-            Region(
-                value=[0, 0, 0, 0, 0, 10, 14, 20, 26][len(grid)],
-                mines_needed=mines_needed,
-                total_blanks=len(blank_cells),
-                blank_cells=blank_cells,
-            )
-        )
+    regions.append(get_grid_region(grid, rule))
 
-    return regions
+    if rule == "B":
+        for r in range(len(grid)):
+            regions.append(get_row_column_region(grid, rule, r, None))
+        for c in range(len(grid[0])):
+            regions.append(get_row_column_region(grid, rule, None, c))
+
+    return [r for r in regions if r]
 
 
 def find_single_cell_hints(number_cells_info):
@@ -208,7 +291,7 @@ def find_single_clickable_cells(regions_info: list[Region]):
             for blank_r, blank_c in region.blank_cells:
                 hints.append(("mine", (blank_r, blank_c)))
 
-    return hints
+    return sorted(list(set(hints)))
 
 
 def find_common_areas(regions_info: list[Region]):
@@ -243,7 +326,7 @@ def find_common_areas(regions_info: list[Region]):
                 for blank_r, blank_c in only_in_cell1:
                     hints.append(("safe", (blank_r, blank_c)))
 
-    return hints
+    return sorted(list(set(hints)))
 
 
 def find_triple_areas(regions_info: list[Region]):
@@ -300,7 +383,7 @@ def find_triple_areas(regions_info: list[Region]):
                     for blank_r, blank_c in only_in_cell1:
                         hints.append(("safe", (blank_r, blank_c)))
 
-    return hints
+    return sorted(list(set(hints)))
 
 
 def location_to_cell_coordinates(location, size):
@@ -446,6 +529,9 @@ def input_spacebar(window_title):
 
 def next_level_check(window_title, save_path):
     capture_window_screenshot(window_title)
-    if completed_check(save_path):
+    status = completed_check(save_path)
+    if status == PuzzleStatus.FINISH:
         input_spacebar(window_title)
+        click_window_position(window_title, 564, 484)
+    elif status == PuzzleStatus.NEXT:
         click_window_position(window_title, 564, 484)

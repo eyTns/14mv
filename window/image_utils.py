@@ -1,5 +1,6 @@
 import os
 import time
+from enum import Enum
 
 import cv2
 import numpy as np
@@ -192,24 +193,34 @@ def convert_to_numeric(best_fit_cells):
     return [[filename_to_numeric[cell] for cell in row] for row in best_fit_cells]
 
 
-def completed_check(screenshot_path):
+class PuzzleStatus(Enum):
+    FINISH = "Finish"
+    NEXT = "Next"
+    INCOMPLETE = "Incomplete"
+
+
+def completed_check(screenshot_path) -> PuzzleStatus:
     """
-    스크린샷에서 지정된 두 좌표의 픽셀이 모두 노란색(FFFF00)인지 확인합니다.
+    스크린샷에서 다음 문제로 넘어갈지 확인합니다.
 
     Args:
         screenshot_path (str): 스크린샷 이미지 파일 경로
-
-    Returns:
-        bool: 두 픽셀이 모두 노란색이면 True, 아니면 False
     """
     try:
         screenshot = imread(screenshot_path)
         if screenshot is None:
             return False
         yellow = (0, 255, 255)
+        dark_yellow = (0, 178, 178)
         color1 = screenshot[51, 833]
         color2 = screenshot[65, 868]
-        return (color1 == yellow).all() and (color2 == yellow).all()
+        color3 = screenshot[70, 863]
+        if (color1 == yellow).all() and (color2 == yellow).all():
+            return PuzzleStatus.FINISH
+        if (color1 == dark_yellow).all and (color3 == dark_yellow).all():
+            return PuzzleStatus.NEXT
+        return PuzzleStatus.INCOMPLETE
+
     except Exception as e:
         print(f"Error checking pixel colors: {e}")
-        return False
+        return PuzzleStatus.INCOMPLETE
