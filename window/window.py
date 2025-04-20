@@ -129,7 +129,6 @@ class MyWindow(QMainWindow):
             hints_double = find_common_areas(regions)
             hints_triple = find_triple_areas(regions)
             all_hints = hints_single.union(hints_double).union(hints_triple)
-            # all_hints = sorted(list(set(hints_single + hints_double + hints_triple)))
             if all_hints:
                 click_hints(self.window_title, all_hints, self.cell_size)
                 next_level_check(self.window_title, save_path)
@@ -139,24 +138,12 @@ class MyWindow(QMainWindow):
             regions = diff_regions(regions)
             print(f"regions: {len(regions)}")
             hints_single = find_single_clickable_cells(regions)
-            if hints_single:
-                print("hints_single")
-                click_hints(self.window_title, hints_single, self.cell_size)
-                next_level_check(self.window_title, save_path)
-                continue
             hints_double = find_common_areas(regions)
-            if hints_double:
-                print("hints_double")
-                click_hints(self.window_title, hints_double, self.cell_size)
+            all_hints = hints_single.union(hints_double)
+            if all_hints:
+                click_hints(self.window_title, all_hints, self.cell_size)
                 next_level_check(self.window_title, save_path)
                 continue
-            # hints_triple = find_triple_areas(regions)
-            # if hints_triple:
-            #     print("hints_triple")
-            #     print(f"triple hints - {hints_triple}")
-            #     click_hints(self.window_title, hints_triple, self.cell_size)
-            #     next_level_check(self.window_title, save_path)
-            #     continue
 
             break
 
@@ -166,7 +153,6 @@ class MyWindow(QMainWindow):
         if hasattr(self, "screenshot_frame"):
             for i in reversed(range(self.screenshot_frame.layout().count())):
                 self.screenshot_frame.layout().itemAt(i).widget().setParent(None)
-
             label = QLabel()
             label.setPixmap(QPixmap(f"{self.window_title}.png"))
             self.screenshot_frame.layout().addWidget(label)

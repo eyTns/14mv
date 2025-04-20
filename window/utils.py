@@ -36,7 +36,7 @@ def get_neighboring_cells_with_indices(row, col, grid):
 def get_total_mines(rule, cell_size):
     if rule in ["V", "X", "X'", "K"]:
         return [0, 0, 0, 0, 0, 10, 14, 20, 26][cell_size]
-    elif rule in ["B"]:
+    elif rule in ["B", "BX"]:
         return [0, 0, 0, 0, 0, 10, 12, 21, 24][cell_size]
     return None
 
@@ -51,11 +51,10 @@ class Region(BaseModel):
         if not isinstance(other, Region):
             return False
         return self.blank_cells == other.blank_cells
-    
+
     def __sub__(self, other):
         if not isinstance(other, Region):
             return NotImplemented
-        
         return Region(
             value=self.value - other.value,
             mines_needed=self.mines_needed - other.mines_needed,
@@ -64,13 +63,13 @@ class Region(BaseModel):
         )
 
 
-
 DIRECTIONS = {
     "V": [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)],
     "X": [(-2, 0), (-1, 0), (1, 0), (2, 0), (0, -2), (0, -1), (0, 1), (0, 2)],
     "X'": [(-1, 0), (1, 0), (0, -1), (0, 1)],
     "K": [(-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1)],
     "B": [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)],
+    "BX": [(-2, 0), (-1, 0), (1, 0), (2, 0), (0, -2), (0, -1), (0, 1), (0, 2)],
 }
 
 
@@ -92,7 +91,7 @@ def get_cell_region(grid, rule, row, col) -> Region:
     mines_needed = grid[row][col]
     neighboring_blanks = set()
 
-    if rule in ["V", "X", "X'", "K", "B"]:
+    if rule in ["V", "X", "X'", "K", "B", "BX"]:
         directions = DIRECTIONS[rule]
     else:
         raise ValueError(f"Invalid rule. Available rules: {DIRECTIONS.keys()}")
@@ -169,13 +168,15 @@ def get_row_column_region(grid, rule, row, col) -> Region:
 
     cells_to_check = []
     if row is not None:
-        mine_value *= row[1]-row[0]+1
-        cells_to_check = [(r, c) for r in range(row[0], row[1]+1)
-                          for c in range(len(grid[0]))]
+        mine_value *= row[1] - row[0] + 1
+        cells_to_check = [
+            (r, c) for r in range(row[0], row[1] + 1) for c in range(len(grid[0]))
+        ]
     elif col is not None:
-        mine_value *= col[1]-col[0]+1
-        cells_to_check = [(r, c) for c in range(col[0], col[1]+1)
-                          for r in range(len(grid))]
+        mine_value *= col[1] - col[0] + 1
+        cells_to_check = [
+            (r, c) for c in range(col[0], col[1] + 1) for r in range(len(grid))
+        ]
     mines_needed = mine_value
 
     for r, c in cells_to_check:
@@ -221,7 +222,7 @@ def get_neighboring_blanks(grid, rule, row, col):
 
     mines_to_place = grid[row][col]
 
-    if rule in ["V", "X", "X'", "K", "B"]:
+    if rule in ["V", "X", "X'", "K", "B", "BX"]:
         directions = DIRECTIONS[rule]
     else:
         raise ValueError(f"Invalid rule. Available rules: {DIRECTIONS.keys()}")
@@ -275,7 +276,7 @@ def analyze_regions(grid, rule) -> list[Region]:
 
     regions.append(get_grid_region(grid, rule))
 
-    if rule == "B":
+    if rule in ["B", "BX"]:
         for rs, re in combinations(range(len(grid)), 2):
             regions.append(get_row_column_region(grid, rule, (rs, re), None))
         for cs, ce in combinations(range(len(grid[0])), 2):
@@ -373,11 +374,6 @@ def find_triple_areas(regions_info: list[Region]):
                 if not common_13 or not common_23:
                     continue
 
-                # print("*****", i, j, k)
-                # print(region1)
-                # print(region2)
-                # print(region3)
-
                 newr1 = Region(
                     value=region1.value + region2.value,
                     mines_needed=region1.mines_needed + region2.mines_needed,
@@ -422,15 +418,13 @@ def diff_regions(regions: list[Region]):
                 rk = rj - ri
                 if not rk in regions and not rk in more_regions:
                     more_regions.append(rk)
-                    if (
-                        rk.mines_needed == 0
-                        or rk.mines_needed==rk.total_blanks
-                        or len(regions) + len(more_regions) >=1000):
+                    if len(regions) + len(more_regions) >= 1000:
                         return regions + more_regions
         if more_regions:
             regions.extend(more_regions)
         else:
             return regions
+
 
 def location_to_cell_coordinates(location, size):
     """
