@@ -22,6 +22,7 @@ from window.utils import (
     find_single_clickable_cells,
     find_triple_areas,
     next_level_check,
+    diff_regions,
 )
 
 
@@ -122,33 +123,37 @@ class MyWindow(QMainWindow):
             capture_window_screenshot(self.window_title)
             best_fit_cells = find_best_fit_cells(save_path, self.cell_size)
             numeric_grid = convert_to_numeric(best_fit_cells)
-            regions_info = analyze_regions(numeric_grid, self.rule)
+            regions = analyze_regions(numeric_grid, self.rule)
 
-            # hints_single = find_single_clickable_cells(regions_info)
-            # if hints_single:
-            #     click_hints(self.window_title, hints_single, self.cell_size)
-            #     next_level_check(self.window_title, save_path)
-            #     continue
-
-            # hints_double = find_common_areas(regions_info)
-            # if hints_double:
-            #     click_hints(self.window_title, hints_double, self.cell_size)
-            #     next_level_check(self.window_title, save_path)
-            #     continue
-
-            # hints_triple = find_triple_areas(regions_info)
-            # if hints_triple:
-            #     print(f"triple hints - {hints_triple}")
-            #     click_hints(self.window_title, hints_triple, self.cell_size)
-            #     next_level_check(self.window_title, save_path)
-            #     continue
-
-            hints_single = find_single_clickable_cells(regions_info)
-            hints_double = find_common_areas(regions_info)
-            hints_triple = find_triple_areas(regions_info)
+            hints_single = find_single_clickable_cells(regions)
+            hints_double = find_common_areas(regions)
+            hints_triple = find_triple_areas(regions)
             all_hints = sorted(list(set(hints_single + hints_double + hints_triple)))
             if all_hints:
                 click_hints(self.window_title, all_hints, self.cell_size)
+                next_level_check(self.window_title, save_path)
+                continue
+
+            # 영역 차집합 포함
+            regions = diff_regions(regions)
+            print(f"regions: {len(regions)}")
+            hints_single = find_single_clickable_cells(regions)
+            if hints_single:
+                print("hints_single")
+                click_hints(self.window_title, hints_single, self.cell_size)
+                next_level_check(self.window_title, save_path)
+                continue
+            hints_double = find_common_areas(regions)
+            if hints_double:
+                print("hints_double")
+                click_hints(self.window_title, hints_double, self.cell_size)
+                next_level_check(self.window_title, save_path)
+                continue
+            hints_triple = find_triple_areas(regions)
+            if hints_triple:
+                print("hints_triple")
+                print(f"triple hints - {hints_triple}")
+                click_hints(self.window_title, hints_triple, self.cell_size)
                 next_level_check(self.window_title, save_path)
                 continue
 

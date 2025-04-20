@@ -3,6 +3,7 @@ import time
 import pyautogui
 import pygetwindow as gw
 from pydantic import BaseModel
+from itertools import combinations
 
 from window.image_utils import (
     PuzzleStatus,
@@ -44,7 +45,24 @@ class Region(BaseModel):
     value: int
     mines_needed: int
     total_blanks: int
-    blank_cells: list[tuple[int, int]]
+    blank_cells: set[tuple[int, int]]
+
+    def __eq__(self, other):
+        if not isinstance(other, Region):
+            return False
+        return self.blank_cells == other.blank_cells
+    
+    def __sub__(self, other):
+        if not isinstance(other, Region):
+            return NotImplemented
+        
+        return Region(
+            value=self.value - other.value,
+            mines_needed=self.mines_needed - other.mines_needed,
+            total_blanks=self.total_blanks - other.total_blanks,
+            blank_cells=self.blank_cells - other.blank_cells,
+        )
+
 
 
 DIRECTIONS = {
@@ -72,7 +90,7 @@ def get_cell_region(grid, rule, row, col) -> Region:
         Region:
     """
     mines_needed = grid[row][col]
-    neighboring_blanks = []
+    neighboring_blanks = set()
 
     if rule in ["V", "X", "X'", "K", "B"]:
         directions = DIRECTIONS[rule]
@@ -84,7 +102,7 @@ def get_cell_region(grid, rule, row, col) -> Region:
         c = col + dc
         if 0 <= r < len(grid) and 0 <= c < len(grid[0]):
             if grid[r][c] == -1:
-                neighboring_blanks.append((r, c))
+                neighboring_blanks.add((r, c))
             elif grid[r][c] == -2:
                 mines_needed -= 1
 
@@ -114,14 +132,14 @@ def get_grid_region(grid, rule) -> Region:
     """
     mine_value = get_total_mines(rule, len(grid))
     mines_needed = mine_value
-    blanks = []
+    blanks = set()
 
     for r in range(len(grid)):
         for c in range(len(grid[0])):
             if grid[r][c] == -2:
                 mines_needed -= 1
             elif grid[r][c] == -1:
-                blanks.append((r, c))
+                blanks.add((r, c))
 
     return Region(
         value=mine_value,
@@ -147,20 +165,24 @@ def get_row_column_region(grid, rule, row, col) -> Region:
         Region
     """
     mine_value = get_total_mines(rule, len(grid)) // len(grid)
-    mines_needed = mine_value
-    blanks = []
+    blanks = set()
 
     cells_to_check = []
     if row is not None:
-        cells_to_check = [(row, c) for c in range(len(grid[0]))]
-    else:
-        cells_to_check = [(r, col) for r in range(len(grid))]
+        mine_value *= row[1]-row[0]+1
+        cells_to_check = [(r, c) for r in range(row[0], row[1]+1)
+                          for c in range(len(grid[0]))]
+    elif col is not None:
+        mine_value *= col[1]-col[0]+1
+        cells_to_check = [(r, c) for c in range(col[0], col[1]+1)
+                          for r in range(len(grid))]
+    mines_needed = mine_value
 
     for r, c in cells_to_check:
         if grid[r][c] == -2:
             mines_needed -= 1
         elif grid[r][c] == -1:
-            blanks.append((r, c))
+            blanks.add((r, c))
 
     return Region(
         value=mine_value,
@@ -254,10 +276,10 @@ def analyze_regions(grid, rule) -> list[Region]:
     regions.append(get_grid_region(grid, rule))
 
     if rule == "B":
-        for r in range(len(grid)):
-            regions.append(get_row_column_region(grid, rule, r, None))
-        for c in range(len(grid[0])):
-            regions.append(get_row_column_region(grid, rule, None, c))
+        for rs, re in combinations(range(len(grid)), 2):
+            regions.append(get_row_column_region(grid, rule, (rs, re), None))
+        for cs, ce in combinations(range(len(grid[0])), 2):
+            regions.append(get_row_column_region(grid, rule, None, (cs, ce)))
 
     return [r for r in regions if r]
 
@@ -299,8 +321,8 @@ def find_common_areas(regions_info: list[Region]):
 
     for i, region1 in enumerate(regions_info):
         for j, region2 in enumerate(regions_info[i + 1 :]):
-            blanks1_set = set(region1.blank_cells)
-            blanks2_set = set(region2.blank_cells)
+            blanks1_set = region1.blank_cells
+            blanks2_set = region2.blank_cells
             common_blanks = blanks1_set.intersection(blanks2_set)
 
             if not common_blanks:
@@ -334,8 +356,8 @@ def find_triple_areas(regions_info: list[Region]):
 
     for i, region1 in enumerate(regions_info):
         for j, region2 in enumerate(regions_info[i + 1 :], i + 1):
-            blanks1_set = set(region1.blank_cells)
-            blanks2_set = set(region2.blank_cells)
+            blanks1_set = region1.blank_cells
+            blanks2_set = region2.blank_cells
             common_12 = blanks1_set.intersection(blanks2_set)
             if common_12:
                 continue
@@ -345,7 +367,7 @@ def find_triple_areas(regions_info: list[Region]):
             for k, region3 in enumerate(regions_info):
                 if i == k or j == k:
                     continue
-                blanks3_set = set(region3.blank_cells)
+                blanks3_set = region3.blank_cells
                 common_13 = blanks1_set.intersection(blanks3_set)
                 common_23 = blanks2_set.intersection(blanks3_set)
                 if not common_13 or not common_23:
@@ -360,12 +382,12 @@ def find_triple_areas(regions_info: list[Region]):
                     value=region1.value + region2.value,
                     mines_needed=region1.mines_needed + region2.mines_needed,
                     total_blanks=region1.total_blanks + region2.total_blanks,
-                    blank_cells=region1.blank_cells + region2.blank_cells,
+                    blank_cells=region1.blank_cells.union(region2.blank_cells),
                 )
                 newr2 = region3
 
-                only_in_cell1 = set(newr1.blank_cells) - set(newr2.blank_cells)
-                only_in_cell2 = set(newr2.blank_cells) - set(newr1.blank_cells)
+                only_in_cell1 = newr1.blank_cells - newr2.blank_cells
+                only_in_cell2 = newr2.blank_cells - newr1.blank_cells
 
                 need1 = newr1.mines_needed
                 need2 = newr2.mines_needed
@@ -385,6 +407,26 @@ def find_triple_areas(regions_info: list[Region]):
 
     return sorted(list(set(hints)))
 
+
+def diff_regions(regions: list[Region]):
+    while len(regions)<1000:
+        more_regions = []
+        for ri, rj in combinations((regions), 2):
+            if ri.total_blanks == rj.total_blanks:
+                continue
+            elif ri.total_blanks > rj.total_blanks:
+                ri, rj = rj, ri
+            if ri.blank_cells < rj.blank_cells:
+                rk = rj - ri
+                if not rk in regions and not rk in more_regions:
+                    more_regions.append(rk)
+                    if rk.mines_needed == 0 or rk.mines_needed==rk.total_blanks:
+                        return regions + more_regions
+        if more_regions:
+            regions.extend(more_regions)
+        else:
+            return regions
+    return regions
 
 def location_to_cell_coordinates(location, size):
     """
