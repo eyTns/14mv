@@ -36,7 +36,7 @@ def get_neighboring_cells_with_indices(row, col, grid):
 def get_total_mines(rule, cell_size):
     if rule in ["V", "X", "X'", "K"]:
         return [0, 0, 0, 0, 0, 10, 14, 20, 26][cell_size]
-    elif rule in ["B", "BX"]:
+    elif rule in ["B", "BX", "BX'"]:
         return [0, 0, 0, 0, 0, 10, 12, 21, 24][cell_size]
     return None
 
@@ -70,6 +70,7 @@ DIRECTIONS = {
     "K": [(-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1)],
     "B": [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)],
     "BX": [(-2, 0), (-1, 0), (1, 0), (2, 0), (0, -2), (0, -1), (0, 1), (0, 2)],
+    "BX'": [(-1, 0), (1, 0), (0, -1), (0, 1)],
 }
 
 
@@ -91,7 +92,7 @@ def get_cell_region(grid, rule, row, col) -> Region:
     mines_needed = grid[row][col]
     neighboring_blanks = set()
 
-    if rule in ["V", "X", "X'", "K", "B", "BX"]:
+    if rule in ["V", "X", "X'", "K", "B", "BX", "BX'"]:
         directions = DIRECTIONS[rule]
     else:
         raise ValueError(f"Invalid rule. Available rules: {DIRECTIONS.keys()}")
@@ -222,7 +223,7 @@ def get_neighboring_blanks(grid, rule, row, col):
 
     mines_to_place = grid[row][col]
 
-    if rule in ["V", "X", "X'", "K", "B", "BX"]:
+    if rule in ["V", "X", "X'", "K", "B", "BX", "BX'"]:
         directions = DIRECTIONS[rule]
     else:
         raise ValueError(f"Invalid rule. Available rules: {DIRECTIONS.keys()}")
@@ -276,30 +277,14 @@ def analyze_regions(grid, rule) -> list[Region]:
 
     regions.append(get_grid_region(grid, rule))
 
-    if rule in ["B", "BX"]:
-        for rs, re in combinations(range(len(grid)), 2):
-            regions.append(get_row_column_region(grid, rule, (rs, re), None))
-        for cs, ce in combinations(range(len(grid[0])), 2):
-            regions.append(get_row_column_region(grid, rule, None, (cs, ce)))
+    if rule in ["B", "BX", "BX'"]:
+        for start in range(len(grid)):
+            for end in range(start, len(grid)):
+                # border inclusive
+                regions.append(get_row_column_region(grid, rule, (start, end), None))
+                regions.append(get_row_column_region(grid, rule, None, (start, end)))
 
     return [r for r in regions if r]
-
-
-def find_single_cell_hints(number_cells_info):
-    hints = []
-
-    for (r, c), info in number_cells_info.items():
-        mines_needed = info["mines_needed"]
-        blank_cells = info["blank_cells"]
-
-        if mines_needed == 0 and len(blank_cells) > 0:
-            for blank_r, blank_c in blank_cells:
-                hints.append(("safe", (blank_r, blank_c)))
-        elif mines_needed == len(blank_cells) and mines_needed > 0:
-            for blank_r, blank_c in blank_cells:
-                hints.append(("mine", (blank_r, blank_c)))
-
-    return hints
 
 
 def find_single_clickable_cells(regions_info: list[Region]):
@@ -352,7 +337,7 @@ def find_common_areas(regions_info: list[Region]):
     return hints
 
 
-def find_triple_areas(regions_info: list[Region]):
+def find_triple_inclusions(regions_info: list[Region]):
     hints = set()
 
     for i, region1 in enumerate(regions_info):
@@ -400,9 +385,63 @@ def find_triple_areas(regions_info: list[Region]):
                         hints.add(("mine", (blank_r, blank_c)))
                     for blank_r, blank_c in only_in_cell1:
                         hints.add(("safe", (blank_r, blank_c)))
-                if hints:
-                    return hints
+                # if hints:
+                #     return hints
 
+    return hints
+
+
+def find_triple_inequalities(regions_info: list[Region]):
+    hints = set()
+
+    for i, region1 in enumerate(regions_info):
+        for j, region2 in enumerate(regions_info[i + 1 :], i + 1):
+            for k, region3 in enumerate(regions_info[j + 1 :], j + 1):
+                r1_blanks = region1.blank_cells
+                r2_blanks = region2.blank_cells
+                r3_blanks = region3.blank_cells
+                only_in_r1 = (r1_blanks - r2_blanks) - r3_blanks
+                only_in_r2 = (r2_blanks - r3_blanks) - r1_blanks
+                only_in_r3 = (r3_blanks - r1_blanks) - r2_blanks
+
+                if (
+                    region1.mines_needed
+                    - region2.mines_needed
+                    - region3.mines_needed
+                    + 1
+                    >= len(only_in_r1)
+                ):
+                    safe_cells = (r2_blanks.intersection(r3_blanks)) - r1_blanks
+                    if safe_cells:
+                        for blank_r, blank_c in safe_cells:
+                            hints.add(("safe", (blank_r, blank_c)))
+
+                if (
+                    region2.mines_needed
+                    - region3.mines_needed
+                    - region1.mines_needed
+                    + 1
+                    >= len(only_in_r2)
+                ):
+                    safe_cells = (r3_blanks.intersection(r1_blanks)) - r2_blanks
+                    if safe_cells:
+                        for blank_r, blank_c in safe_cells:
+                            hints.add(("safe", (blank_r, blank_c)))
+
+                if (
+                    region3.mines_needed
+                    - region1.mines_needed
+                    - region2.mines_needed
+                    + 1
+                    >= len(only_in_r3)
+                ):
+                    safe_cells = (r1_blanks.intersection(r2_blanks)) - r3_blanks
+                    if safe_cells:
+                        for blank_r, blank_c in safe_cells:
+                            hints.add(("safe", (blank_r, blank_c)))
+
+    # if hints:
+    #     print(hints)
     return hints
 
 
@@ -456,6 +495,13 @@ def location_to_cell_coordinates(location, size):
     return (x2, y2)
 
 
+def activate_window(window_title):
+    target_window = gw.getWindowsWithTitle(window_title)[0]
+    target_window.activate()
+    time.sleep(0.2)
+    return True
+
+
 def click_window_position(window_title, relative_x, relative_y, right_click=False):
     """
     창을 활성화하고 지정된 상대 좌표를 클릭합니다.
@@ -469,7 +515,6 @@ def click_window_position(window_title, relative_x, relative_y, right_click=Fals
     try:
         target_window = gw.getWindowsWithTitle(window_title)[0]
         target_window.activate()
-        time.sleep(0.1)
         absolute_x = target_window.left + relative_x
         absolute_y = target_window.top + relative_y
         original_x, original_y = pyautogui.position()
@@ -501,23 +546,21 @@ def batch_click_positions(window_title, clicks):
     try:
         target_window = gw.getWindowsWithTitle(window_title)[0]
         target_window.activate()
-        time.sleep(0.1)
         original_x, original_y = pyautogui.position()
         pyautogui.FAILSAFE = False
+        pyautogui.MINIMUM_DURATION = 0
+        pyautogui.PAUSE = 0.01
 
+        base_x = target_window.left
+        base_y = target_window.top
+        clicks.append((150, 150, "right"))
+        pyautogui.moveTo(base_x + 150, base_y + 150)
         for relative_x, relative_y, button_type in clicks:
-            absolute_x = target_window.left + relative_x
-            absolute_y = target_window.top + relative_y
+            absolute_x = base_x + relative_x
+            absolute_y = base_y + relative_y
             pyautogui.moveTo(absolute_x, absolute_y)
+            pyautogui.click(button=button_type)
 
-            if button_type == "left":
-                pyautogui.click()
-            elif button_type == "right":
-                pyautogui.rightClick()
-            else:
-                print(f"Warning: Unknown button type '{button_type}', skipping click")
-
-        pyautogui.moveTo(target_window.left + 100, target_window.top + 100)
         pyautogui.moveTo(original_x, original_y)
         pyautogui.FAILSAFE = True
 

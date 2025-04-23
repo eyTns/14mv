@@ -20,9 +20,11 @@ from window.utils import (
     click_hints,
     find_common_areas,
     find_single_clickable_cells,
-    find_triple_areas,
+    find_triple_inclusions,
+    find_triple_inequalities,
     next_level_check,
     diff_regions,
+    activate_window,
 )
 
 
@@ -107,9 +109,7 @@ class MyWindow(QMainWindow):
         self.header_frame = HeaderFrame()
         self.grid_frame = GridFrame()
         self.screenshot_frame = ScreenshotFrame(self.window_title)
-        self.control_frame = ControlFrame(
-            self.start_new_process
-        )  # 새로운 프로세스 시작 기능 연결
+        self.control_frame = ControlFrame(self.start_new_process)
 
         main_layout.addWidget(self.header_frame)
         main_layout.addWidget(self.grid_frame)
@@ -118,6 +118,7 @@ class MyWindow(QMainWindow):
 
     def process_game_data(self):
         save_path = f"{self.window_title}.png"
+        activate_window(self.window_title)
 
         while True:
             capture_window_screenshot(self.window_title)
@@ -127,7 +128,8 @@ class MyWindow(QMainWindow):
 
             hints_single = find_single_clickable_cells(regions)
             hints_double = find_common_areas(regions)
-            hints_triple = find_triple_areas(regions)
+            hints_triple = find_triple_inclusions(regions)
+            hints_triple = hints_triple.union(find_triple_inequalities(regions))
             all_hints = hints_single.union(hints_double).union(hints_triple)
             if all_hints:
                 click_hints(self.window_title, all_hints, self.cell_size)

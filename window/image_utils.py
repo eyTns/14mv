@@ -38,13 +38,13 @@ def capture_window_screenshot(window_title):
     try:
         target_window = gw.getWindowsWithTitle(window_title)[0]
         target_window.activate()
+        time.sleep(0.1)
         x, y, width, height = (
             target_window.left,
             target_window.top,
             target_window.width,
             target_window.height,
         )
-        time.sleep(0.2)
         screenshot = ImageGrab.grab(bbox=(x, y, x + width, y + height))
         screenshot.save(f"{window_title}.png")
         return True
