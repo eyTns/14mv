@@ -1,13 +1,16 @@
 import pytest
 
 from window.utils import (
-    analyze_number_cells,
-    convert_to_numeric,
+    analyze_regions,
     find_common_areas,
-    find_single_cell_hints,
+    find_single_clickable_cells,
     get_neighboring_cells,
     get_neighboring_cells_with_indices,
 )
+from window.image_utils import convert_to_numeric, MSE_of_images
+import warnings
+
+warnings.filterwarnings("ignore", message="sipPyTypeDict.*")
 
 
 @pytest.fixture
@@ -128,18 +131,10 @@ def test_minesweeper_hints():
         [-1, -1, 2, -2, 1, 0],
     ]
 
-    number_cells_info = analyze_number_cells(grid)
+    number_cells_info = analyze_regions(grid, "V")
     hints = find_common_areas(number_cells_info)
-    safe_cells = [
-        (hint["location"][0], hint["location"][1])
-        for hint in hints
-        if hint["type"] == "safe"
-    ]
-    mine_cells = [
-        (hint["location"][0], hint["location"][1])
-        for hint in hints
-        if hint["type"] == "mine"
-    ]
+    safe_cells = [(hint[1][0], hint[1][1]) for hint in hints if hint[0] == "safe"]
+    mine_cells = [(hint[1][0], hint[1][1]) for hint in hints if hint[0] == "mine"]
     expected_safe_cells = [(3, 1)]
 
     print(f"생성된 힌트: {hints}")
@@ -151,7 +146,6 @@ def test_minesweeper_hints():
 
 
 def test_minesweeper_hints2():
-    # 주어진 예제 grid
     grid = [
         [-3, 1, 1, 3, -2, 3],
         [-1, 4, -1, -1, -2, -2],
@@ -161,20 +155,12 @@ def test_minesweeper_hints2():
         [-1, -1, 2, -2, 1, 0],
     ]
 
-    number_cells_info = analyze_number_cells(grid)
-    single_cell_hints = find_single_cell_hints(number_cells_info)
+    number_cells_info = analyze_regions(grid, "V")
+    single_cell_hints = find_single_clickable_cells(number_cells_info)
     common_area_hints = find_common_areas(number_cells_info)
-    all_hints = single_cell_hints + common_area_hints
-    safe_cells = [
-        (hint["location"][0], hint["location"][1])
-        for hint in all_hints
-        if hint["type"] == "safe"
-    ]
-    mine_cells = [
-        (hint["location"][0], hint["location"][1])
-        for hint in all_hints
-        if hint["type"] == "mine"
-    ]
+    all_hints = single_cell_hints.union(common_area_hints)
+    safe_cells = [(hint[1][0], hint[1][1]) for hint in all_hints if hint[0] == "safe"]
+    mine_cells = [(hint[1][0], hint[1][1]) for hint in all_hints if hint[0] == "mine"]
 
     print(f"안전한 셀들: {safe_cells}")
     print(f"지뢰 셀들: {mine_cells}")

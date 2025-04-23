@@ -1,10 +1,9 @@
 import os
 
 import pytest
-from PyQt5.QtWidgets import QApplication, QMainWindow
+from PyQt5.QtWidgets import QApplication
 
-from window import utils
-from window.window import MyWindow
+from window import image_utils
 
 
 @pytest.fixture
@@ -14,17 +13,10 @@ def app():
     app.quit()
 
 
-def test_window_appears(app):
-    window = MyWindow()
-    # qtbot.addWidget(window)  # Required for interacting with the window
-    window.show()
-    assert isinstance(window, QMainWindow)
-
-
 def test_image_same():
     root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     image_path_1 = os.path.join(root_path, "images", "cell_blank.png")
     image_path_2 = os.path.join(root_path, "images", "cell_blank_2.png")
 
-    print(utils.MSE_of_images(image_path_1, image_path_2))
-    assert utils.compare_image_same(image_path_1, image_path_2)
+    print(image_utils.MSE_of_images(image_path_1, image_path_2))
+    assert image_utils.compare_image_same(image_path_1, image_path_2)
