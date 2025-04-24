@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (
     QFrame,
     QGridLayout,
     QLabel,
+    QLineEdit,
     QMainWindow,
     QPushButton,
     QVBoxLayout,
@@ -26,6 +27,7 @@ from window.utils import (
     diff_regions,
     activate_window,
     apply_hints,
+    skip_level,
 )
 
 
@@ -37,16 +39,6 @@ class HeaderFrame(QFrame):
         layout.addWidget(label)
 
 
-class GridFrame(QFrame):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setStyleSheet("background-color: lightgray;")
-        layout = QGridLayout()
-        layout.setSpacing(0)
-        layout.setContentsMargins(10, 10, 10, 10)
-        self.setLayout(layout)
-
-
 class ScreenshotFrame(QFrame):
     def __init__(self, window_title, parent=None):
         super().__init__(parent)
@@ -56,6 +48,46 @@ class ScreenshotFrame(QFrame):
         label = QLabel()
         label.setPixmap(QPixmap(f"{window_title}.png"))
         layout.addWidget(label)
+
+
+class TextFrame(QFrame):
+    def __init__(self, conf, parent=None):
+        super().__init__(parent)
+        layout = QGridLayout()
+        self.setLayout(layout)
+
+        self.window_title_edit = QLineEdit(conf["window_title"])
+        self.rule_edit = QLineEdit(conf["rule"])
+        self.cell_size_edit = QLineEdit(str(conf["cell_size"]))
+
+        layout.addWidget(QLabel("Window Title:"), 0, 0)
+        layout.addWidget(self.window_title_edit, 0, 1)
+        layout.addWidget(QLabel("Rule:"), 1, 0)
+        layout.addWidget(self.rule_edit, 1, 1)
+        layout.addWidget(QLabel("Cell Size:"), 2, 0)
+        layout.addWidget(self.cell_size_edit, 2, 1)
+
+        self.setStyleSheet(
+            """
+            QLabel {
+                font-size: 12px;
+                color: #333333;
+            }
+            QLineEdit {
+                padding: 5px;
+                border: 1px solid #cccccc;
+                border-radius: 3px;
+                background-color: white;
+            }
+        """
+        )
+
+    def get_current_values(self):
+        return {
+            "window_title": self.window_title_edit.text(),
+            "rule": self.rule_edit.text(),
+            "cell_size": int(self.cell_size_edit.text()),
+        }
 
 
 class ControlFrame(QFrame):
@@ -91,6 +123,7 @@ class MyWindow(QMainWindow):
         super().__init__()
 
         self.conf = conf
+        self.update_config_values()
         self.window_title = conf["window_title"]
         self.rule = conf["rule"].upper()
         self.cell_size = conf["cell_size"]
@@ -101,6 +134,11 @@ class MyWindow(QMainWindow):
         self.setup_ui()
         self.setup_window_geometry()
 
+    def update_config_values(self):
+        self.window_title = self.conf["window_title"]
+        self.rule = self.conf["rule"].upper()
+        self.cell_size = self.conf["cell_size"]
+
     def setup_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -108,13 +146,13 @@ class MyWindow(QMainWindow):
         central_widget.setLayout(main_layout)
 
         self.header_frame = HeaderFrame()
-        self.grid_frame = GridFrame()
         self.screenshot_frame = ScreenshotFrame(self.window_title)
+        self.text_frame = TextFrame(self.conf)
         self.control_frame = ControlFrame(self.start_new_process)
 
         main_layout.addWidget(self.header_frame)
-        main_layout.addWidget(self.grid_frame)
         main_layout.addWidget(self.screenshot_frame)
+        main_layout.addWidget(self.text_frame)
         main_layout.addWidget(self.control_frame)
 
     def process_game_data(self):
@@ -155,7 +193,8 @@ class MyWindow(QMainWindow):
             hints = hints.union(find_single_clickable_cells(regions))
             hints = hints.union(find_common_areas(regions))
             if not hints:
-                hints = hints.union(find_triple_inequalities(regions[:400]))
+                print("searching deeper...")
+                hints = hints.union(find_triple_inequalities(regions[:400], deep=True))
             if hints:
                 print(f"{len(hints)} hints found")
                 click_hints(self.window_title, hints, self.cell_size)
@@ -164,8 +203,11 @@ class MyWindow(QMainWindow):
 
             break
 
-
     def start_new_process(self):
+        if hasattr(self, "text_frame"):
+            self.conf = self.text_frame.get_current_values()
+            self.update_config_values()
+
         self.process_game_data()
 
         if hasattr(self, "screenshot_frame"):
@@ -185,8 +227,3 @@ class MyWindow(QMainWindow):
             window_size.width(),
             window_size.height(),
         )
-
-    def recapture(self):
-        self.close()
-        self.__init__(self.conf)
-        self.show()

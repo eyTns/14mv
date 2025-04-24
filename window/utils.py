@@ -275,8 +275,6 @@ def find_triple_inclusions(regions_info: list[Region]):
             if common_12:
                 continue
 
-            # print("*****", i, j)
-
             for k, region3 in enumerate(regions_info):
                 if i == k or j == k:
                     continue
@@ -316,7 +314,7 @@ def find_triple_inclusions(regions_info: list[Region]):
     return hints
 
 
-def find_triple_inequalities(regions_info: list[Region]):
+def find_triple_inequalities(regions_info: list[Region], deep: bool = False):
     hints = set()
 
     for region1, region2, region3 in combinations(regions_info, 3):
@@ -382,6 +380,10 @@ def find_triple_inequalities(regions_info: list[Region]):
                 for blank_r, blank_c in mine_cells:
                     hints.add(("mine", (blank_r, blank_c)))
 
+        if deep and hints:
+            print(f"Triple hints: {hints}")
+            return hints
+
     if hints:
         print(f"Triple hints: {hints}")
     return hints
@@ -407,7 +409,7 @@ def diff_regions(regions: list[Region]):
             return regions
 
 
-def apply_hints(grid:list[list[int]], hints):
+def apply_hints(grid: list[list[int]], hints):
     for hint_type, (r, c) in hints:
         if hint_type == "safe":
             grid[r][c] = -3
@@ -453,38 +455,7 @@ def activate_window(window_title):
     return True
 
 
-def click_window_position(window_title, relative_x, relative_y, right_click=False):
-    """
-    창을 활성화하고 지정된 상대 좌표를 클릭합니다.
-
-    Args:
-        window_title (str): 대상 창의 제목
-        relative_x (int): 창 내부의 x 좌표
-        relative_y (int): 창 내부의 y 좌표
-        right_click (bool): True면 우클릭, False면 좌클릭
-    """
-    try:
-        target_window = gw.getWindowsWithTitle(window_title)[0]
-        target_window.activate()
-        absolute_x = target_window.left + relative_x
-        absolute_y = target_window.top + relative_y
-        original_x, original_y = pyautogui.position()
-        pyautogui.FAILSAFE = False
-        pyautogui.moveTo(absolute_x, absolute_y)
-        if right_click:
-            pyautogui.rightClick()
-        else:
-            pyautogui.click()
-        pyautogui.moveTo(target_window.left + 100, target_window.top + 100)
-        pyautogui.moveTo(original_x, original_y)
-        pyautogui.FAILSAFE = True
-        return True
-    except Exception as e:
-        print(f"Error clicking position: {e}")
-        return False
-
-
-def batch_click_positions(window_title, clicks):
+def click_positions(window_title, clicks):
     """
     창을 활성화하고 여러 위치를 지정된 방식으로 클릭합니다.
 
@@ -523,40 +494,17 @@ def batch_click_positions(window_title, clicks):
         return False
 
 
-def click_cell(window_title, location, size, right_click=False):
-    """
-    주어진 location의 셀을 클릭합니다.
-
-    Args:
-        location: (row, col) 튜플
-        size: 그리드 크기 (5,6,7,8)
-        right_click: True면 우클릭, False면 좌클릭
-    """
-    coords = location_to_cell_coordinates(location, size)
-    return click_window_position(window_title, coords[0], coords[1], right_click)
-
-
 def click_hints(window_title, hints, size):
-    """
-    여러 힌트를 클릭합니다.
-
-    Args:
-        hints: [('safe' or 'mine', (row, col)), ...] 리스트
-        size: 그리드 크기 (5, 6, 7, 8)
-    """
     clicks = []
     for hint in hints:
         location = hint[1]
         relative_x, relative_y = location_to_cell_coordinates(location, size)
         button_type = "left" if hint[0] == "safe" else "right"
         clicks.append((relative_x, relative_y, button_type))
-    return batch_click_positions(window_title, clicks)
+    return click_positions(window_title, clicks)
 
 
 def input_spacebar(window_title):
-    """
-    대상 창을 활성화하고 스페이스바를 입력합니다.
-    """
     target_window = gw.getWindowsWithTitle(window_title)[0]
     target_window.activate()
     pyautogui.press("space")
@@ -567,6 +515,10 @@ def next_level_check(window_title, save_path):
     status = completed_check(save_path)
     if status == PuzzleStatus.FINISH:
         input_spacebar(window_title)
-        click_window_position(window_title, 564, 484)
+        click_positions(window_title, [(564, 484, "left")])
     elif status == PuzzleStatus.NEXT:
-        click_window_position(window_title, 564, 484)
+        click_positions(window_title, [(564, 484, "left")])
+
+
+def skip_level(window_title):
+    click_positions(window_title, [(856, 75, "left"), (715, 484, "left")])
