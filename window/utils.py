@@ -35,9 +35,9 @@ def get_neighboring_cells_with_indices(row, col, grid):
 
 def get_total_mines(rule, cell_size):
     if rule in ["V", "X", "X'", "K"]:
-        return [0, 0, 0, 0, 0, 10, 14, 20, 26][cell_size]
+        return [10, 14, 20, 26][cell_size-5]
     elif rule in ["B", "BX", "BX'"]:
-        return [0, 0, 0, 0, 0, 10, 12, 21, 24][cell_size]
+        return [10, 12, 21, 24][cell_size-5]
     return None
 
 
@@ -63,7 +63,7 @@ class Region(BaseModel):
         )
 
 
-DIRECTIONS = {
+NEIGHBORS = {
     "V": [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)],
     "X": [(-2, 0), (-1, 0), (1, 0), (2, 0), (0, -2), (0, -1), (0, 1), (0, 2)],
     "X'": [(-1, 0), (1, 0), (0, -1), (0, 1)],
@@ -93,11 +93,11 @@ def get_cell_region(grid, rule, row, col) -> Region:
     neighboring_blanks = set()
 
     if rule in ["V", "X", "X'", "K", "B", "BX", "BX'"]:
-        directions = DIRECTIONS[rule]
+        neighbors = NEIGHBORS[rule]
     else:
-        raise ValueError(f"Invalid rule. Available rules: {DIRECTIONS.keys()}")
+        raise ValueError(f"Invalid rule. Available rules: {NEIGHBORS.keys()}")
 
-    for dr, dc in directions:
+    for dr, dc in neighbors:
         r = row + dr
         c = col + dc
         if 0 <= r < len(grid) and 0 <= c < len(grid[0]):
@@ -192,79 +192,6 @@ def get_row_column_region(grid, rule, row, col) -> Region:
         total_blanks=len(blanks),
         blank_cells=blanks,
     )
-
-
-def get_neighboring_blanks(grid, rule, row, col):
-    """
-    주어진 셀의 이웃한 빈 칸들을 찾습니다.
-
-    Args:
-        grid (list): 게임 그리드
-        rule (str): "V" 또는 "X" - 이웃을 찾는 규칙
-            V: 주변 8방향의 1칸
-            X: 상하좌우 방향으로 1-2칸
-        row (int): 현재 셀의 행 번호 (-1인 경우 전체 그리드 검사)
-        col (int): 현재 셀의 열 번호 (-1인 경우 전체 그리드 검사)
-
-    Returns:
-        tuple: (남은 지뢰 수, 이웃한 빈 칸들의 위치 목록)
-    """
-    neighboring_blanks = []
-
-    if row == -1 and col == -1:
-        mines_to_place = get_total_mines(rule, len(grid))
-        for r in range(len(grid)):
-            for c in range(len(grid[0])):
-                if grid[r][c] == -2:
-                    mines_to_place -= 1
-                elif grid[r][c] == -1:
-                    neighboring_blanks.append((r, c))
-        return mines_to_place, neighboring_blanks
-
-    mines_to_place = grid[row][col]
-
-    if rule in ["V", "X", "X'", "K", "B", "BX", "BX'"]:
-        directions = DIRECTIONS[rule]
-    else:
-        raise ValueError(f"Invalid rule. Available rules: {DIRECTIONS.keys()}")
-
-    for dr, dc in directions:
-        r = row + dr
-        c = col + dc
-        if 0 <= r < len(grid) and 0 <= c < len(grid[0]):
-            if grid[r][c] == -1:
-                neighboring_blanks.append((r, c))
-            elif grid[r][c] == -2:
-                mines_to_place -= 1
-
-    return mines_to_place, neighboring_blanks
-
-
-def analyze_number_cells(grid, rule):
-    number_cells_info = {}
-
-    for r in range(len(grid)):
-        for c in range(len(grid[0])):
-            if grid[r][c] >= 0:
-                mines_needed, blank_cells = get_neighboring_blanks(grid, rule, r, c)
-                if blank_cells:
-                    number_cells_info[(r, c)] = {
-                        "value": grid[r][c],
-                        "mines_needed": mines_needed,
-                        "total_blanks": len(blank_cells),
-                        "blank_cells": blank_cells,
-                    }
-
-    mines_needed, blank_cells = get_neighboring_blanks(grid, rule, -1, -1)
-    if blank_cells:
-        number_cells_info[(-1, -1)] = {
-            "value": get_total_mines(rule, len(grid)),
-            "mines_needed": mines_needed,
-            "total_blanks": len(blank_cells),
-            "blank_cells": blank_cells,
-        }
-
-    return number_cells_info
 
 
 def analyze_regions(grid, rule) -> list[Region]:
@@ -395,8 +322,8 @@ def find_triple_inequalities(regions_info: list[Region]):
     hints = set()
 
     for i, region1 in enumerate(regions_info):
-        for j, region2 in enumerate(regions_info[i + 1 :], i + 1):
-            for k, region3 in enumerate(regions_info[j + 1 :], j + 1):
+        for j, region2 in enumerate(regions_info[i+1:], i+1):
+            for k, region3 in enumerate(regions_info[j+1:], j+1):
                 r1_blanks = region1.blank_cells
                 r2_blanks = region2.blank_cells
                 r3_blanks = region3.blank_cells
@@ -440,9 +367,69 @@ def find_triple_inequalities(regions_info: list[Region]):
                         for blank_r, blank_c in safe_cells:
                             hints.add(("safe", (blank_r, blank_c)))
 
-    # if hints:
-    #     print(hints)
+    if hints:
+        print(f"Triple inequalities: {hints}")
     return hints
+
+
+
+def find_triple_duals(regions_info: list[Region]):
+    hints = set()
+ 
+    for i, region1 in enumerate(regions_info):
+        for j, region2 in enumerate(regions_info[i+1:], i+1):
+            for k, region3 in enumerate(regions_info[j+1:], j+1):
+                r1_blanks = region1.blank_cells
+                r2_blanks = region2.blank_cells
+                r3_blanks = region3.blank_cells
+                only_in_r1 = (r1_blanks - r2_blanks) - r3_blanks
+                only_in_r2 = (r2_blanks - r3_blanks) - r1_blanks
+                only_in_r3 = (r3_blanks - r1_blanks) - r2_blanks
+                r1_numbers_needed = region1.total_blanks - region1.mines_needed
+                r2_numbers_needed = region2.total_blanks - region2.mines_needed
+                r3_numbers_needed = region3.total_blanks - region3.mines_needed
+                
+                if (
+                    r1_numbers_needed
+                    - r2_numbers_needed
+                    - r3_numbers_needed
+                    + 1
+                    >= len(only_in_r1)
+                ):
+                    mine_cells = (r2_blanks.intersection(r3_blanks)) - r1_blanks
+                    if mine_cells:
+                        for blank_r, blank_c in mine_cells:
+                            hints.add(("mine", (blank_r, blank_c)))
+                
+                if (
+                    r2_numbers_needed
+                    - r3_numbers_needed
+                    - r1_numbers_needed
+                    + 1
+                    >= len(only_in_r2)
+                ):
+                    mine_cells = (r3_blanks.intersection(r1_blanks)) - r2_blanks
+                    if mine_cells:
+                        for blank_r, blank_c in mine_cells:
+                            hints.add(("mine", (blank_r, blank_c)))
+                
+                if (
+                    r3_numbers_needed
+                    - r1_numbers_needed
+                    - r2_numbers_needed
+                    + 1
+                    >= len(only_in_r3)
+                ):
+                    mine_cells = (r1_blanks.intersection(r2_blanks)) - r3_blanks
+                    if mine_cells:
+                        for blank_r, blank_c in mine_cells:
+                            hints.add(("mine", (blank_r, blank_c)))
+
+    if hints:
+        print(f"Triple dual: {hints}")
+    return hints
+
+
 
 
 def diff_regions(regions: list[Region]):
@@ -550,6 +537,7 @@ def batch_click_positions(window_title, clicks):
         pyautogui.FAILSAFE = False
         pyautogui.MINIMUM_DURATION = 0
         pyautogui.PAUSE = 0.01
+        # pyautogui.PAUSE = 0.3
 
         base_x = target_window.left
         base_y = target_window.top

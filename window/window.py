@@ -22,6 +22,7 @@ from window.utils import (
     find_single_clickable_cells,
     find_triple_inclusions,
     find_triple_inequalities,
+    find_triple_duals,
     next_level_check,
     diff_regions,
     activate_window,
@@ -130,6 +131,7 @@ class MyWindow(QMainWindow):
             hints_double = find_common_areas(regions)
             hints_triple = find_triple_inclusions(regions)
             hints_triple = hints_triple.union(find_triple_inequalities(regions))
+            hints_triple = hints_triple.union(find_triple_duals(regions))
             all_hints = hints_single.union(hints_double).union(hints_triple)
             if all_hints:
                 click_hints(self.window_title, all_hints, self.cell_size)
