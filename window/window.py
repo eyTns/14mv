@@ -94,7 +94,6 @@ class MyWindow(QMainWindow):
         self.window_title = conf["window_title"]
         self.rule = conf["rule"].upper()
         self.cell_size = conf["cell_size"]
-        self.ultimate_mode = conf["ultimate_mode"]
 
         self.process_game_data()
 
@@ -129,7 +128,7 @@ class MyWindow(QMainWindow):
             hints = set()
             hint_count = len(hints)
             while True:
-                regions = analyze_regions(grid, self.rule, self.ultimate_mode)
+                regions = analyze_regions(grid, self.rule)
 
                 hints = hints.union(find_single_clickable_cells(regions))
                 hints = hints.union(find_common_areas(regions))
