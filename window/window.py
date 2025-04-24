@@ -124,17 +124,26 @@ class MyWindow(QMainWindow):
         while True:
             capture_window_screenshot(self.window_title)
             best_fit_cells = find_best_fit_cells(save_path, self.cell_size)
-            numeric_grid = convert_to_numeric(best_fit_cells)
-            regions = analyze_regions(numeric_grid, self.rule)
+            grid = convert_to_numeric(best_fit_cells)
+            hints = set()
+            hint_count = len(hints)
+            while True:
+                regions = analyze_regions(grid, self.rule, self.ultimate_mode)
 
-            hints_single = find_single_clickable_cells(regions)
-            hints_double = find_common_areas(regions)
-            hints_triple = find_triple_inclusions(regions)
-            hints_triple = hints_triple.union(find_triple_inequalities(regions))
-            hints_triple = hints_triple.union(find_triple_duals(regions))
-            all_hints = hints_single.union(hints_double).union(hints_triple)
-            if all_hints:
-                click_hints(self.window_title, all_hints, self.cell_size)
+                hints = hints.union(find_single_clickable_cells(regions))
+                hints = hints.union(find_common_areas(regions))
+                hints = hints.union(find_triple_inclusions(regions))
+                hints = hints.union(find_triple_inequalities(regions))
+                if hint_count < len(hints):
+                    hint_count = len(hints)
+                    grid = apply_hints(grid, hints)
+                    continue
+
+                break
+
+            if hints:
+                print(f"{len(hints)} hints found")
+                click_hints(self.window_title, hints, self.cell_size)
                 next_level_check(self.window_title, save_path)
                 continue
 

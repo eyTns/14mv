@@ -452,6 +452,15 @@ def diff_regions(regions: list[Region]):
             return regions
 
 
+def apply_hints(grid:list[list[int]], hints):
+    for hint_type, (r, c) in hints:
+        if hint_type == "safe":
+            grid[r][c] = -3
+        elif hint_type == "mine":
+            grid[r][c] = -2
+    return grid
+
+
 def location_to_cell_coordinates(location, size):
     """
     Convert a location (row, col) to cell coordinates (x, y)
