@@ -22,10 +22,10 @@ from window.utils import (
     find_single_clickable_cells,
     find_triple_inclusions,
     find_triple_inequalities,
-    find_triple_duals,
     next_level_check,
     diff_regions,
     activate_window,
+    apply_hints,
 )
 
 
@@ -94,6 +94,7 @@ class MyWindow(QMainWindow):
         self.window_title = conf["window_title"]
         self.rule = conf["rule"].upper()
         self.cell_size = conf["cell_size"]
+        self.ultimate_mode = conf["ultimate_mode"]
 
         self.process_game_data()
 
@@ -159,6 +160,7 @@ class MyWindow(QMainWindow):
                 continue
 
             break
+
 
     def start_new_process(self):
         self.process_game_data()

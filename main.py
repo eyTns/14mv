@@ -8,7 +8,7 @@ from window import window
 def main():
     conf = {
         "window_title": "Minesweeper Variants",
-        "rule": "K",
+        "rule": "V",
         "cell_size": 6,
     }
     app = QApplication(sys.argv)

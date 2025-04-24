@@ -32,7 +32,6 @@ This application failed to start because no Qt platform plugin could be initiali
 
 # TODOs
 ## Todo
-- 재귀적으로 여러번 실행해서 결과 표시
 - 14mv2 문제들 풀기
 - GUI 창에서 사이즈 선택할수 있게 하기
 - 사이즈 인식하기
@@ -41,11 +40,9 @@ This application failed to start because no Qt platform plugin could be initiali
 - 영역 덧셈하기
 - 리팩토링: 새 규칙 추가하기 쉽게
 - 리팩토링: 디스플레이, 조작하는 함수 파일 옮기기
-- 리팩토링: 주석 빼
 - 리팩토링: 테스트들 점검
 - 리팩토링: 안쓰는 함수 지우기
 - A in (B 합 C) 이고 (B교C 의 칸 수) = (B needed) = (C needed) = k>0 이면 B교C는 safe이다.
-- "트리플 셀" 의 듀얼 로직 구현하기기
 
 ## Done
 - ✅ 이미지를 받아오기
@@ -70,10 +67,13 @@ This application failed to start because no Qt platform plugin could be initiali
 - 트리플 힌트 일반적인 경우 만들기
 - 좀더 제너럴한 region 3개 검사하기
 - A교B, A교C, B교C가 존재하고 B, C의 needed는 둘다 1이고 A의 needed는 수-1 이면 B교C는 safe이다.
+- "트리플 셀" 의 듀얼 로직 구현하기
+- 재귀적으로 여러번 실행해서 결과 표시
 
-## Not to do
+## Won't do
 - ❌ 안전한 칸과 깃발 꽂을 칸을 표로 / 이미지로 표시
 - ❌ 힌트만으로 못풀었으면 문제 그냥 넘기고 계속 진행하기
 - ❌ TDD 어케함?
 - ❌ 쿼드루플 힌트 (둘둘짝) 만들기 (X'! 풀기)
 - 싱글 힌트 클릭 부활시키기
+- 리팩토링: 주석 빼

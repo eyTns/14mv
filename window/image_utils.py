@@ -38,7 +38,7 @@ def capture_window_screenshot(window_title):
     try:
         target_window = gw.getWindowsWithTitle(window_title)[0]
         target_window.activate()
-        time.sleep(0.1)
+        time.sleep(0.02)
         x, y, width, height = (
             target_window.left,
             target_window.top,
@@ -185,10 +185,14 @@ def find_best_fit_cells(screenshot_path, cell_size):
     return best_fit_filenames
 
 
-def convert_to_numeric(best_fit_cells):
+def convert_to_numeric(best_fit_cells) -> list[list[int]]:
     filename_to_numeric = {f"cell_{i}.png": i for i in range(0, 9 + 1)}
     filename_to_numeric.update(
-        {"cell_blank.png": -1, "cell_flag.png": -2, "cell_question.png": -3}
+        {"cell_blank.png": -1, 
+         "cell_flag.png": -2, 
+         "cell_question.png": -3,
+         "cell_star.png": -3,
+         }
     )
     return [[filename_to_numeric[cell] for cell in row] for row in best_fit_cells]
 
@@ -212,12 +216,16 @@ def completed_check(screenshot_path) -> PuzzleStatus:
             return False
         yellow = (0, 255, 255)
         dark_yellow = (0, 178, 178)
+        # ultimate mode
+        dark_red = (0, 0, 178)
         color1 = screenshot[51, 833]
         color2 = screenshot[65, 868]
         color3 = screenshot[70, 863]
         if (color1 == yellow).all() and (color2 == yellow).all():
             return PuzzleStatus.FINISH
-        if (color1 == dark_yellow).all and (color3 == dark_yellow).all():
+        if (color1 == dark_yellow).all() and (color3 == dark_yellow).all():
+            return PuzzleStatus.NEXT
+        if (color1 == dark_red).all() and (color3 == dark_red).all():
             return PuzzleStatus.NEXT
         return PuzzleStatus.INCOMPLETE
 

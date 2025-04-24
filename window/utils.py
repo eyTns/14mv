@@ -35,9 +35,9 @@ def get_neighboring_cells_with_indices(row, col, grid):
 
 def get_total_mines(rule, cell_size):
     if rule in ["V", "X", "X'", "K"]:
-        return [10, 14, 20, 26][cell_size-5]
+        return [10, 14, 20, 26][cell_size - 5]
     elif rule in ["B", "BX", "BX'"]:
-        return [10, 12, 21, 24][cell_size-5]
+        return [10, 12, 21, 24][cell_size - 5]
     return None
 
 
@@ -312,8 +312,6 @@ def find_triple_inclusions(regions_info: list[Region]):
                         hints.add(("mine", (blank_r, blank_c)))
                     for blank_r, blank_c in only_in_cell1:
                         hints.add(("safe", (blank_r, blank_c)))
-                # if hints:
-                #     return hints
 
     return hints
 
@@ -321,115 +319,72 @@ def find_triple_inclusions(regions_info: list[Region]):
 def find_triple_inequalities(regions_info: list[Region]):
     hints = set()
 
-    for i, region1 in enumerate(regions_info):
-        for j, region2 in enumerate(regions_info[i+1:], i+1):
-            for k, region3 in enumerate(regions_info[j+1:], j+1):
-                r1_blanks = region1.blank_cells
-                r2_blanks = region2.blank_cells
-                r3_blanks = region3.blank_cells
-                only_in_r1 = (r1_blanks - r2_blanks) - r3_blanks
-                only_in_r2 = (r2_blanks - r3_blanks) - r1_blanks
-                only_in_r3 = (r3_blanks - r1_blanks) - r2_blanks
+    for region1, region2, region3 in combinations(regions_info, 3):
+        r1_blanks = region1.blank_cells
+        r2_blanks = region2.blank_cells
+        r3_blanks = region3.blank_cells
+        only_in_r1 = (r1_blanks - r2_blanks) - r3_blanks
+        only_in_r2 = (r2_blanks - r3_blanks) - r1_blanks
+        only_in_r3 = (r3_blanks - r1_blanks) - r2_blanks
+        r1_numbers_needed = region1.total_blanks - region1.mines_needed
+        r2_numbers_needed = region2.total_blanks - region2.mines_needed
+        r3_numbers_needed = region3.total_blanks - region3.mines_needed
 
-                if (
-                    region1.mines_needed
-                    - region2.mines_needed
-                    - region3.mines_needed
-                    + 1
-                    >= len(only_in_r1)
-                ):
-                    safe_cells = (r2_blanks.intersection(r3_blanks)) - r1_blanks
-                    if safe_cells:
-                        for blank_r, blank_c in safe_cells:
-                            hints.add(("safe", (blank_r, blank_c)))
+        if (
+            region1.mines_needed - region2.mines_needed - region3.mines_needed + 1
+            >= len(only_in_r1)
+        ):
+            safe_cells = (r2_blanks.intersection(r3_blanks)) - r1_blanks
+            if safe_cells:
+                for blank_r, blank_c in safe_cells:
+                    hints.add(("safe", (blank_r, blank_c)))
 
-                if (
-                    region2.mines_needed
-                    - region3.mines_needed
-                    - region1.mines_needed
-                    + 1
-                    >= len(only_in_r2)
-                ):
-                    safe_cells = (r3_blanks.intersection(r1_blanks)) - r2_blanks
-                    if safe_cells:
-                        for blank_r, blank_c in safe_cells:
-                            hints.add(("safe", (blank_r, blank_c)))
+        if (
+            region2.mines_needed - region3.mines_needed - region1.mines_needed + 1
+            >= len(only_in_r2)
+        ):
+            safe_cells = (r3_blanks.intersection(r1_blanks)) - r2_blanks
+            if safe_cells:
+                for blank_r, blank_c in safe_cells:
+                    hints.add(("safe", (blank_r, blank_c)))
 
-                if (
-                    region3.mines_needed
-                    - region1.mines_needed
-                    - region2.mines_needed
-                    + 1
-                    >= len(only_in_r3)
-                ):
-                    safe_cells = (r1_blanks.intersection(r2_blanks)) - r3_blanks
-                    if safe_cells:
-                        for blank_r, blank_c in safe_cells:
-                            hints.add(("safe", (blank_r, blank_c)))
+        if (
+            region3.mines_needed - region1.mines_needed - region2.mines_needed + 1
+            >= len(only_in_r3)
+        ):
+            safe_cells = (r1_blanks.intersection(r2_blanks)) - r3_blanks
+            if safe_cells:
+                for blank_r, blank_c in safe_cells:
+                    hints.add(("safe", (blank_r, blank_c)))
 
-    if hints:
-        print(f"Triple inequalities: {hints}")
-    return hints
+        # duals
+        if r1_numbers_needed - r2_numbers_needed - r3_numbers_needed + 1 >= len(
+            only_in_r1
+        ):
+            mine_cells = (r2_blanks.intersection(r3_blanks)) - r1_blanks
+            if mine_cells:
+                for blank_r, blank_c in mine_cells:
+                    hints.add(("mine", (blank_r, blank_c)))
 
+        if r2_numbers_needed - r3_numbers_needed - r1_numbers_needed + 1 >= len(
+            only_in_r2
+        ):
+            mine_cells = (r3_blanks.intersection(r1_blanks)) - r2_blanks
+            if mine_cells:
+                for blank_r, blank_c in mine_cells:
+                    hints.add(("mine", (blank_r, blank_c)))
 
-
-def find_triple_duals(regions_info: list[Region]):
-    hints = set()
- 
-    for i, region1 in enumerate(regions_info):
-        for j, region2 in enumerate(regions_info[i+1:], i+1):
-            for k, region3 in enumerate(regions_info[j+1:], j+1):
-                r1_blanks = region1.blank_cells
-                r2_blanks = region2.blank_cells
-                r3_blanks = region3.blank_cells
-                only_in_r1 = (r1_blanks - r2_blanks) - r3_blanks
-                only_in_r2 = (r2_blanks - r3_blanks) - r1_blanks
-                only_in_r3 = (r3_blanks - r1_blanks) - r2_blanks
-                r1_numbers_needed = region1.total_blanks - region1.mines_needed
-                r2_numbers_needed = region2.total_blanks - region2.mines_needed
-                r3_numbers_needed = region3.total_blanks - region3.mines_needed
-                
-                if (
-                    r1_numbers_needed
-                    - r2_numbers_needed
-                    - r3_numbers_needed
-                    + 1
-                    >= len(only_in_r1)
-                ):
-                    mine_cells = (r2_blanks.intersection(r3_blanks)) - r1_blanks
-                    if mine_cells:
-                        for blank_r, blank_c in mine_cells:
-                            hints.add(("mine", (blank_r, blank_c)))
-                
-                if (
-                    r2_numbers_needed
-                    - r3_numbers_needed
-                    - r1_numbers_needed
-                    + 1
-                    >= len(only_in_r2)
-                ):
-                    mine_cells = (r3_blanks.intersection(r1_blanks)) - r2_blanks
-                    if mine_cells:
-                        for blank_r, blank_c in mine_cells:
-                            hints.add(("mine", (blank_r, blank_c)))
-                
-                if (
-                    r3_numbers_needed
-                    - r1_numbers_needed
-                    - r2_numbers_needed
-                    + 1
-                    >= len(only_in_r3)
-                ):
-                    mine_cells = (r1_blanks.intersection(r2_blanks)) - r3_blanks
-                    if mine_cells:
-                        for blank_r, blank_c in mine_cells:
-                            hints.add(("mine", (blank_r, blank_c)))
+        if r3_numbers_needed - r1_numbers_needed - r2_numbers_needed + 1 >= len(
+            only_in_r3
+        ):
+            mine_cells = (r1_blanks.intersection(r2_blanks)) - r3_blanks
+            if mine_cells:
+                for blank_r, blank_c in mine_cells:
+                    hints.add(("mine", (blank_r, blank_c)))
 
     if hints:
-        print(f"Triple dual: {hints}")
+        print(f"Triple hints: {hints}")
     return hints
-
-
 
 
 def diff_regions(regions: list[Region]):
@@ -545,7 +500,7 @@ def batch_click_positions(window_title, clicks):
         original_x, original_y = pyautogui.position()
         pyautogui.FAILSAFE = False
         pyautogui.MINIMUM_DURATION = 0
-        pyautogui.PAUSE = 0.01
+        pyautogui.PAUSE = 0.0001
         # pyautogui.PAUSE = 0.3
 
         base_x = target_window.left
