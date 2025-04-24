@@ -150,11 +150,15 @@ class MyWindow(QMainWindow):
             # 영역 차집합 포함
             regions = diff_regions(regions)
             print(f"regions: {len(regions)}")
-            hints_single = find_single_clickable_cells(regions)
-            hints_double = find_common_areas(regions)
-            all_hints = hints_single.union(hints_double)
-            if all_hints:
-                click_hints(self.window_title, all_hints, self.cell_size)
+
+            hints = set()
+            hints = hints.union(find_single_clickable_cells(regions))
+            hints = hints.union(find_common_areas(regions))
+            if not hints:
+                hints = hints.union(find_triple_inequalities(regions[:400]))
+            if hints:
+                print(f"{len(hints)} hints found")
+                click_hints(self.window_title, hints, self.cell_size)
                 next_level_check(self.window_title, save_path)
                 continue
 
