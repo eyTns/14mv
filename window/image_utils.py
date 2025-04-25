@@ -38,7 +38,7 @@ def capture_window_screenshot(window_title):
     try:
         target_window = gw.getWindowsWithTitle(window_title)[0]
         target_window.activate()
-        time.sleep(0.02)
+        time.sleep(0.05)
         x, y, width, height = (
             target_window.left,
             target_window.top,
@@ -51,6 +51,26 @@ def capture_window_screenshot(window_title):
     except Exception as e:
         print(f"Error capturing screenshot: {e}")
         return False
+
+
+size_to_initial_position_dict = {
+    5: (395, 234),
+    6: (370, 209),
+    7: (345, 184),
+    8: (320, 159),
+}
+
+
+def detect_cell_size(window_title):
+    capture_window_screenshot(window_title)
+    screenshot = imread(f"{window_title}.png")
+    white = (255, 255, 255)
+    for size in [8, 7, 6, 5]:
+        x, y = size_to_initial_position_dict[size]
+        color = screenshot[y, x]
+        if (color == white).all():
+            return size
+    return None
 
 
 def find_template_in_screenshot(screenshot_path, template_path):
@@ -71,15 +91,6 @@ def find_template_in_screenshot(screenshot_path, template_path):
     except Exception as e:
         print(f"Error while searching for template: {e}")
         return None
-
-
-# Define the size-to-initial-position dictionary
-size_to_initial_position_dict = {
-    5: (395, 234),
-    6: (370, 209),
-    7: (345, 184),
-    8: (320, 159),
-}
 
 
 def get_cropped_cell_coordinates(size):
@@ -150,9 +161,6 @@ def find_best_template_filename(captured_cell_path):
             min_mse = mse
             best_template_filename = template_filename
 
-    # print(captured_cell_path)
-    # print(f'Best template: {best_template_filename}, MSE: {min_mse}')
-
     if best_template_filename is not None:
         imwrite(
             "best_template.png",
@@ -188,11 +196,12 @@ def find_best_fit_cells(screenshot_path, cell_size):
 def convert_to_numeric(best_fit_cells) -> list[list[int]]:
     filename_to_numeric = {f"cell_{i}.png": i for i in range(0, 9 + 1)}
     filename_to_numeric.update(
-        {"cell_blank.png": -1, 
-         "cell_flag.png": -2, 
-         "cell_question.png": -3,
-         "cell_star.png": -3,
-         }
+        {
+            "cell_blank.png": -1,
+            "cell_flag.png": -2,
+            "cell_question.png": -3,
+            "cell_star.png": -3,
+        }
     )
     return [[filename_to_numeric[cell] for cell in row] for row in best_fit_cells]
 

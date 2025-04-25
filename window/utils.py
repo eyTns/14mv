@@ -36,7 +36,7 @@ def get_neighboring_cells_with_indices(row, col, grid):
 def get_total_mines(rule, cell_size):
     if rule in ["V", "X", "X'", "K"]:
         return [10, 14, 20, 26][cell_size - 5]
-    elif rule in ["B", "BX", "BX'"]:
+    elif rule in ["B", "BX", "BX'", "BK"]:
         return [10, 12, 21, 24][cell_size - 5]
     return None
 
@@ -68,6 +68,7 @@ NEIGHBORS = {
     "X": [(-2, 0), (-1, 0), (1, 0), (2, 0), (0, -2), (0, -1), (0, 1), (0, 2)],
     "X'": [(-1, 0), (1, 0), (0, -1), (0, 1)],
     "K": [(-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1)],
+    "BK": [(-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1)],
     "B": [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)],
     "BX": [(-2, 0), (-1, 0), (1, 0), (2, 0), (0, -2), (0, -1), (0, 1), (0, 2)],
     "BX'": [(-1, 0), (1, 0), (0, -1), (0, 1)],
@@ -92,7 +93,7 @@ def get_cell_region(grid, rule, row, col) -> Region:
     mines_needed = grid[row][col]
     neighboring_blanks = set()
 
-    if rule in ["V", "X", "X'", "K", "B", "BX", "BX'"]:
+    if rule in NEIGHBORS.keys():
         neighbors = NEIGHBORS[rule]
     else:
         raise ValueError(f"Invalid rule. Available rules: {NEIGHBORS.keys()}")
@@ -204,7 +205,7 @@ def analyze_regions(grid, rule) -> list[Region]:
 
     regions.append(get_grid_region(grid, rule))
 
-    if rule in ["B", "BX", "BX'"]:
+    if "B" in rule:
         for start in range(len(grid)):
             for end in range(start, len(grid)):
                 # border inclusive
@@ -384,8 +385,6 @@ def find_triple_inequalities(regions_info: list[Region], deep: bool = False):
             print(f"Triple hints: {hints}")
             return hints
 
-    if hints:
-        print(f"Triple hints: {hints}")
     return hints
 
 

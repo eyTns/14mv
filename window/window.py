@@ -15,6 +15,7 @@ from window.image_utils import (
     capture_window_screenshot,
     convert_to_numeric,
     find_best_fit_cells,
+    detect_cell_size,
 )
 from window.utils import (
     analyze_regions,
@@ -58,14 +59,11 @@ class TextFrame(QFrame):
 
         self.window_title_edit = QLineEdit(conf["window_title"])
         self.rule_edit = QLineEdit(conf["rule"])
-        self.cell_size_edit = QLineEdit(str(conf["cell_size"]))
 
         layout.addWidget(QLabel("Window Title:"), 0, 0)
         layout.addWidget(self.window_title_edit, 0, 1)
         layout.addWidget(QLabel("Rule:"), 1, 0)
         layout.addWidget(self.rule_edit, 1, 1)
-        layout.addWidget(QLabel("Cell Size:"), 2, 0)
-        layout.addWidget(self.cell_size_edit, 2, 1)
 
         self.setStyleSheet(
             """
@@ -86,7 +84,6 @@ class TextFrame(QFrame):
         return {
             "window_title": self.window_title_edit.text(),
             "rule": self.rule_edit.text(),
-            "cell_size": int(self.cell_size_edit.text()),
         }
 
 
@@ -126,7 +123,7 @@ class MyWindow(QMainWindow):
         self.update_config_values()
         self.window_title = conf["window_title"]
         self.rule = conf["rule"].upper()
-        self.cell_size = conf["cell_size"]
+        self.cell_size = detect_cell_size(self.window_title)
 
         self.process_game_data()
 
@@ -137,7 +134,6 @@ class MyWindow(QMainWindow):
     def update_config_values(self):
         self.window_title = self.conf["window_title"]
         self.rule = self.conf["rule"].upper()
-        self.cell_size = self.conf["cell_size"]
 
     def setup_ui(self):
         central_widget = QWidget()
@@ -180,7 +176,6 @@ class MyWindow(QMainWindow):
                 break
 
             if hints:
-                print(f"{len(hints)} hints found")
                 click_hints(self.window_title, hints, self.cell_size)
                 next_level_check(self.window_title, save_path)
                 continue
