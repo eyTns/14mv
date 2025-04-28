@@ -1,14 +1,15 @@
+import warnings
+
 import pytest
 
+from window.image_utils import MSE_of_images, convert_to_numeric
 from window.utils import (
     analyze_regions,
-    find_common_areas,
+    find_double_areas,
     find_single_clickable_cells,
     get_neighboring_cells,
     get_neighboring_cells_with_indices,
 )
-from window.image_utils import convert_to_numeric, MSE_of_images
-import warnings
 
 warnings.filterwarnings("ignore", message="sipPyTypeDict.*")
 
@@ -132,7 +133,7 @@ def test_minesweeper_hints():
     ]
 
     number_cells_info = analyze_regions(grid, "V")
-    hints = find_common_areas(number_cells_info)
+    hints = find_double_areas(number_cells_info)
     safe_cells = [(hint[1][0], hint[1][1]) for hint in hints if hint[0] == "safe"]
     mine_cells = [(hint[1][0], hint[1][1]) for hint in hints if hint[0] == "mine"]
     expected_safe_cells = [(3, 1)]
@@ -157,7 +158,7 @@ def test_minesweeper_hints2():
 
     number_cells_info = analyze_regions(grid, "V")
     single_cell_hints = find_single_clickable_cells(number_cells_info)
-    common_area_hints = find_common_areas(number_cells_info)
+    common_area_hints = find_double_areas(number_cells_info)
     all_hints = single_cell_hints.union(common_area_hints)
     safe_cells = [(hint[1][0], hint[1][1]) for hint in all_hints if hint[0] == "safe"]
     mine_cells = [(hint[1][0], hint[1][1]) for hint in all_hints if hint[0] == "mine"]

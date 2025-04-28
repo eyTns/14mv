@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import pygetwindow as gw
 from PIL import Image, ImageGrab
+from window.const import INITIAL_POSITIONS
 
 
 def imread(filename, flags=cv2.IMREAD_COLOR, dtype=np.uint8):
@@ -53,12 +54,6 @@ def capture_window_screenshot(window_title):
         return False
 
 
-size_to_initial_position_dict = {
-    5: (395, 234),
-    6: (370, 209),
-    7: (345, 184),
-    8: (320, 159),
-}
 
 
 def detect_cell_size(window_title):
@@ -66,7 +61,7 @@ def detect_cell_size(window_title):
     screenshot = imread(f"{window_title}.png")
     white = (255, 255, 255)
     for size in [8, 7, 6, 5]:
-        x, y = size_to_initial_position_dict[size]
+        x, y = INITIAL_POSITIONS[size]
         color = screenshot[y, x]
         if (color == white).all():
             return size
@@ -94,9 +89,9 @@ def find_template_in_screenshot(screenshot_path, template_path):
 
 
 def get_cropped_cell_coordinates(size):
-    if size not in size_to_initial_position_dict:
+    if size not in INITIAL_POSITIONS:
         raise ValueError("Invalid size. Size should be 5, 6, 7, or 8.")
-    initial_x, initial_y = size_to_initial_position_dict[size]
+    initial_x, initial_y = INITIAL_POSITIONS[size]
     x_increment, y_increment = 50, 50
     cell_coordinates = []
     for row in range(size):
@@ -125,7 +120,7 @@ def find_all_templates_in_screenshot(screenshot_path, template_path):
                 screenshot_region = screenshot.crop(
                     (x, y, x + template_width, y + template_height)
                 )
-                if (x, y) in size_to_initial_position_dict.values():
+                if (x, y) in INITIAL_POSITIONS.values():
                     screenshot_region.save(f"screenshot_region_{x}_{y}.png")
                 if screenshot_region == template:
                     positions.append((x, y))

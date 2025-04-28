@@ -1,15 +1,15 @@
 import time
+from itertools import combinations
 
 import pyautogui
 import pygetwindow as gw
 from pydantic import BaseModel
-from itertools import combinations
 
+from window.const import CLICK_COORDINATES, NEIGHBORS, TOTAL_MINES, INITIAL_POSITIONS
 from window.image_utils import (
     PuzzleStatus,
     capture_window_screenshot,
     completed_check,
-    size_to_initial_position_dict,
 )
 
 
@@ -34,11 +34,10 @@ def get_neighboring_cells_with_indices(row, col, grid):
 
 
 def get_total_mines(rule, cell_size):
-    if rule in ["V", "X", "X'", "K"]:
-        return [10, 14, 20, 26][cell_size - 5]
-    elif rule in ["B", "BX", "BX'", "BK"]:
-        return [10, 12, 21, 24][cell_size - 5]
-    return None
+    if rule in TOTAL_MINES:
+        return TOTAL_MINES[rule][cell_size - 5]
+    else:
+        return None
 
 
 class Region(BaseModel):
@@ -47,32 +46,16 @@ class Region(BaseModel):
     total_blanks: int
     blank_cells: set[tuple[int, int]]
 
-    def __eq__(self, other):
-        if not isinstance(other, Region):
-            return False
+    def __eq__(self, other: "Region") -> bool:
         return self.blank_cells == other.blank_cells
 
-    def __sub__(self, other):
-        if not isinstance(other, Region):
-            return NotImplemented
+    def __sub__(self, other: "Region") -> "Region":
         return Region(
             value=self.value - other.value,
             mines_needed=self.mines_needed - other.mines_needed,
             total_blanks=self.total_blanks - other.total_blanks,
             blank_cells=self.blank_cells - other.blank_cells,
         )
-
-
-NEIGHBORS = {
-    "V": [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)],
-    "X": [(-2, 0), (-1, 0), (1, 0), (2, 0), (0, -2), (0, -1), (0, 1), (0, 2)],
-    "X'": [(-1, 0), (1, 0), (0, -1), (0, 1)],
-    "K": [(-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1)],
-    "BK": [(-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1)],
-    "B": [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)],
-    "BX": [(-2, 0), (-1, 0), (1, 0), (2, 0), (0, -2), (0, -1), (0, 1), (0, 2)],
-    "BX'": [(-1, 0), (1, 0), (0, -1), (0, 1)],
-}
 
 
 def get_cell_region(grid, rule, row, col) -> Region:
@@ -119,18 +102,6 @@ def get_cell_region(grid, rule, row, col) -> Region:
 
 
 def get_grid_region(grid, rule) -> Region:
-    """
-    주어진 그리드 전체에서 빈 칸들을 찾습니다.
-
-    Args:
-        grid (list): 게임 그리드
-        rule (str): "V", "X" 등 - 이웃을 찾는 규칙
-            V: 주변 8방향의 1칸
-            X: 상하좌우 방향으로 1-2칸
-
-    Returns:
-        Region
-    """
     mine_value = get_total_mines(rule, len(grid))
     mines_needed = mine_value
     blanks = set()
@@ -151,20 +122,6 @@ def get_grid_region(grid, rule) -> Region:
 
 
 def get_row_column_region(grid, rule, row, col) -> Region:
-    """
-    주어진 행 또는 열에서 빈 칸들을 찾습니다.
-
-    Args:
-        grid (list): 게임 그리드
-        rule (str): "V", "X" 등 - 이웃을 찾는 규칙
-            V: 주변 8방향의 1칸
-            X: 상하좌우 방향으로 1-2칸
-        row (int | None): 현재 셀의 행 번호
-        col (int | None): 현재 셀의 열 번호
-
-    Returns:
-        Region
-    """
     mine_value = get_total_mines(rule, len(grid)) // len(grid)
     blanks = set()
 
@@ -207,10 +164,9 @@ def analyze_regions(grid, rule) -> list[Region]:
 
     if "B" in rule:
         for start in range(len(grid)):
-            for end in range(start, len(grid)):
-                # border inclusive
-                regions.append(get_row_column_region(grid, rule, (start, end), None))
-                regions.append(get_row_column_region(grid, rule, None, (start, end)))
+            # single lines
+            regions.append(get_row_column_region(grid, rule, (start, start), None))
+            regions.append(get_row_column_region(grid, rule, None, (start, start)))
 
     return [r for r in regions if r]
 
@@ -230,7 +186,7 @@ def find_single_clickable_cells(regions_info: list[Region]):
     return hints
 
 
-def find_common_areas(regions_info: list[Region]):
+def find_double_areas(regions_info: list[Region]):
     hints = set()
 
     for i, region1 in enumerate(regions_info):
@@ -318,71 +274,159 @@ def find_triple_inclusions(regions_info: list[Region]):
 def find_triple_inequalities(regions_info: list[Region], deep: bool = False):
     hints = set()
 
-    for region1, region2, region3 in combinations(regions_info, 3):
-        r1_blanks = region1.blank_cells
-        r2_blanks = region2.blank_cells
-        r3_blanks = region3.blank_cells
-        only_in_r1 = (r1_blanks - r2_blanks) - r3_blanks
-        only_in_r2 = (r2_blanks - r3_blanks) - r1_blanks
-        only_in_r3 = (r3_blanks - r1_blanks) - r2_blanks
-        r1_numbers_needed = region1.total_blanks - region1.mines_needed
-        r2_numbers_needed = region2.total_blanks - region2.mines_needed
-        r3_numbers_needed = region3.total_blanks - region3.mines_needed
+    for r1, r2, r3 in combinations(regions_info, 3):
+        r1b = r1.blank_cells
+        r2b = r2.blank_cells
+        r3b = r3.blank_cells
+        r1on = r1b - r2b - r3b
+        r2on = r2b - r3b - r1b
+        r3on = r3b - r1b - r2b
+        r1m = r1.mines_needed
+        r2m = r2.mines_needed
+        r3m = r3.mines_needed
+        r1n = r1.total_blanks - r1m
+        r2n = r2.total_blanks - r2m
+        r3n = r3.total_blanks - r3m
 
-        if (
-            region1.mines_needed - region2.mines_needed - region3.mines_needed + 1
-            >= len(only_in_r1)
-        ):
-            safe_cells = (r2_blanks.intersection(r3_blanks)) - r1_blanks
+        if r1m - r2m - r3m + 1 >= len(r1on):
+            safe_cells = (r2b.intersection(r3b)) - r1b
             if safe_cells:
                 for blank_r, blank_c in safe_cells:
                     hints.add(("safe", (blank_r, blank_c)))
 
-        if (
-            region2.mines_needed - region3.mines_needed - region1.mines_needed + 1
-            >= len(only_in_r2)
-        ):
-            safe_cells = (r3_blanks.intersection(r1_blanks)) - r2_blanks
+        if r2m - r3m - r1m + 1 >= len(r2on):
+            safe_cells = (r3b.intersection(r1b)) - r2b
             if safe_cells:
                 for blank_r, blank_c in safe_cells:
                     hints.add(("safe", (blank_r, blank_c)))
 
-        if (
-            region3.mines_needed - region1.mines_needed - region2.mines_needed + 1
-            >= len(only_in_r3)
-        ):
-            safe_cells = (r1_blanks.intersection(r2_blanks)) - r3_blanks
+        if r3m - r1m - r2m + 1 >= len(r3on):
+            safe_cells = (r1b.intersection(r2b)) - r3b
             if safe_cells:
                 for blank_r, blank_c in safe_cells:
                     hints.add(("safe", (blank_r, blank_c)))
 
-        # duals
-        if r1_numbers_needed - r2_numbers_needed - r3_numbers_needed + 1 >= len(
-            only_in_r1
-        ):
-            mine_cells = (r2_blanks.intersection(r3_blanks)) - r1_blanks
+        if r1n - r2n - r3n + 1 >= len(r1on):
+            mine_cells = (r2b.intersection(r3b)) - r1b
             if mine_cells:
                 for blank_r, blank_c in mine_cells:
                     hints.add(("mine", (blank_r, blank_c)))
 
-        if r2_numbers_needed - r3_numbers_needed - r1_numbers_needed + 1 >= len(
-            only_in_r2
-        ):
-            mine_cells = (r3_blanks.intersection(r1_blanks)) - r2_blanks
+        if r2n - r3n - r1n + 1 >= len(r2on):
+            mine_cells = (r3b.intersection(r1b)) - r2b
             if mine_cells:
                 for blank_r, blank_c in mine_cells:
                     hints.add(("mine", (blank_r, blank_c)))
 
-        if r3_numbers_needed - r1_numbers_needed - r2_numbers_needed + 1 >= len(
-            only_in_r3
-        ):
-            mine_cells = (r1_blanks.intersection(r2_blanks)) - r3_blanks
+        if r3n - r1n - r2n + 1 >= len(r3on):
+            mine_cells = (r1b.intersection(r2b)) - r3b
             if mine_cells:
                 for blank_r, blank_c in mine_cells:
                     hints.add(("mine", (blank_r, blank_c)))
 
         if deep and hints:
             print(f"Triple hints: {hints}")
+            return hints
+
+    return hints
+
+
+def find_quadruple_inequalities(regions_info: list[Region], deep: bool = False):
+    hints = set()
+
+    for r1, r2, r3, r4 in combinations(regions_info, 4):
+        r1b = r1.blank_cells
+        r2b = r2.blank_cells
+        r3b = r3.blank_cells
+        r4b = r4.blank_cells
+        r1on = r1b - r2b - r3b - r4b
+        r2on = r2b - r3b - r4b - r1b
+        r3on = r3b - r4b - r1b - r2b
+        r4on = r4b - r1b - r2b - r3b
+        r1m = r1.mines_needed
+        r2m = r2.mines_needed
+        r3m = r3.mines_needed
+        r4m = r4.mines_needed
+        r1n = r1.total_blanks - r1m
+        r2n = r2.total_blanks - r2m
+        r3n = r3.total_blanks - r3m
+        r4n = r4.total_blanks - r4m
+
+        if r1m - r2m - r3m - r4m + 1 >= len(r1on):
+            safe23 = r2b.intersection(r3b)
+            safe34 = r3b.intersection(r4b)
+            safe42 = r4b.intersection(r2b)
+            safe_cells = safe23.union(safe34).union(safe42) - r1b
+            if safe_cells:
+                for blank_r, blank_c in safe_cells:
+                    hints.add(("safe", (blank_r, blank_c)))
+
+        if r2m - r3m - r4m - r1m + 1 >= len(r2on):
+            safe34 = r3b.intersection(r4b)
+            safe41 = r4b.intersection(r1b)
+            safe13 = r1b.intersection(r3b)
+            safe_cells = safe34.union(safe41).union(safe13) - r2b
+            if safe_cells:
+                for blank_r, blank_c in safe_cells:
+                    hints.add(("safe", (blank_r, blank_c)))
+
+        if r3m - r4m - r1m - r2m + 1 >= len(r3on):
+            safe41 = r4b.intersection(r1b)
+            safe12 = r1b.intersection(r2b)
+            safe24 = r2b.intersection(r4b)
+            safe_cells = safe41.union(safe12).union(safe24) - r3b
+            if safe_cells:
+                for blank_r, blank_c in safe_cells:
+                    hints.add(("safe", (blank_r, blank_c)))
+
+        if r4m - r1m - r2m - r3m + 1 >= len(r4on):
+            safe12 = r1b.intersection(r2b)
+            safe23 = r2b.intersection(r3b)
+            safe31 = r3b.intersection(r1b)
+            safe_cells = safe12.union(safe23).union(safe31) - r4b
+            if safe_cells:
+                for blank_r, blank_c in safe_cells:
+                    hints.add(("safe", (blank_r, blank_c)))
+
+        if r1n - r2n - r3n - r4n + 1 >= len(r1on):
+            mine23 = r2b.intersection(r3b)
+            mine34 = r3b.intersection(r4b)
+            mine42 = r4b.intersection(r2b)
+            mine_cells = mine23.union(mine34).union(mine42) - r1b
+            if mine_cells:
+                for blank_r, blank_c in mine_cells:
+                    hints.add(("mine", (blank_r, blank_c)))
+
+        if r2n - r3n - r4n - r1n + 1 >= len(r2on):
+            mine34 = r3b.intersection(r4b)
+            mine41 = r4b.intersection(r1b)
+            mine13 = r1b.intersection(r3b)
+            mine_cells = mine34.union(mine41).union(mine13) - r2b
+            if mine_cells:
+                for blank_r, blank_c in mine_cells:
+                    hints.add(("mine", (blank_r, blank_c)))
+
+        if r3n - r4n - r1n - r2n + 1 >= len(r3on):
+            mine41 = r4b.intersection(r1b)
+            mine12 = r1b.intersection(r2b)
+            mine24 = r2b.intersection(r4b)
+            mine_cells = mine41.union(mine12).union(mine24) - r3b
+            if mine_cells:
+                for blank_r, blank_c in mine_cells:
+                    hints.add(("mine", (blank_r, blank_c)))
+
+        if r4n - r1n - r2n - r3n + 1 >= len(r4on):
+            mine12 = r1b.intersection(r2b)
+            mine23 = r2b.intersection(r3b)
+            mine31 = r3b.intersection(r1b)
+            mine_cells = mine12.union(mine23).union(mine31) - r4b
+            if mine_cells:
+                for blank_r, blank_c in mine_cells:
+                    hints.add(("mine", (blank_r, blank_c)))
+
+        # if deep and hints:
+        if hints:
+            print(f"Quadruple hints: {hints}")
             return hints
 
     return hints
@@ -418,17 +462,7 @@ def apply_hints(grid: list[list[int]], hints):
 
 
 def location_to_cell_coordinates(location, size):
-    """
-    Convert a location (row, col) to cell coordinates (x, y)
-
-    Args:
-        location: tuple of (row, col)
-        size: integer representing the grid size (5, 6, 7, or 8)
-
-    Returns:
-        tuple: (x, y) coordinates of the center of the cell
-    """
-    if size not in size_to_initial_position_dict:
+    if size not in INITIAL_POSITIONS:
         raise ValueError("Invalid size. Size should be 5, 6, 7, or 8.")
 
     row, col = location
@@ -437,7 +471,7 @@ def location_to_cell_coordinates(location, size):
             f"Invalid location. Row and column should be between 0 and {size-1}"
         )
 
-    initial_x, initial_y = size_to_initial_position_dict[size]
+    initial_x, initial_y = INITIAL_POSITIONS[size]
     x_increment, y_increment = 50, 50
 
     x1 = initial_x + col * x_increment
@@ -455,15 +489,6 @@ def activate_window(window_title):
 
 
 def click_positions(window_title, clicks):
-    """
-    창을 활성화하고 여러 위치를 지정된 방식으로 클릭합니다.
-
-    Args:
-        window_title (str): 대상 창의 제목
-        click_info_list (list of tuples): [(x, y, button_type), ...] 형식의 목록
-            - x, y: 창 내부의 상대 좌표
-            - button_type: "left" 또는 "right" 문자열
-    """
     try:
         target_window = gw.getWindowsWithTitle(window_title)[0]
         target_window.activate()
@@ -475,7 +500,7 @@ def click_positions(window_title, clicks):
 
         base_x = target_window.left
         base_y = target_window.top
-        clicks.append((150, 150, "right"))
+        clicks.append(CLICK_COORDINATES["safe_click"])
         pyautogui.moveTo(base_x + 150, base_y + 150)
         for relative_x, relative_y, button_type in clicks:
             absolute_x = base_x + relative_x
@@ -514,10 +539,12 @@ def next_level_check(window_title, save_path):
     status = completed_check(save_path)
     if status == PuzzleStatus.FINISH:
         input_spacebar(window_title)
-        click_positions(window_title, [(564, 484, "left")])
+        click_positions(window_title, [CLICK_COORDINATES["next_level"]])
     elif status == PuzzleStatus.NEXT:
-        click_positions(window_title, [(564, 484, "left")])
+        click_positions(window_title, [CLICK_COORDINATES["next_level"]])
 
 
 def skip_level(window_title):
-    click_positions(window_title, [(856, 75, "left"), (715, 484, "left")])
+    skip1 = CLICK_COORDINATES["skip_button"]
+    skip2 = CLICK_COORDINATES["confirm_skip"]
+    click_positions(window_title, [skip1, skip2])
