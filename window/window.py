@@ -28,6 +28,7 @@ from window.utils import (
     find_single_clickable_cells,
     find_triple_inclusions,
     find_triple_inequalities,
+    find_two_pairs_inequalities,
     next_level_check,
     skip_level,
 )
@@ -177,6 +178,7 @@ class MyWindow(QMainWindow):
                 hints = hints.union(find_triple_inclusions(regions))
                 hints = hints.union(find_triple_inequalities(regions))
                 hints = hints.union(find_quadruple_inequalities(regions[:80]))
+                hints = hints.union(find_two_pairs_inequalities(regions[:80]))
                 if hint_count < len(hints):
                     hint_count = len(hints)
                     grid = apply_hints(grid, hints)
@@ -203,6 +205,11 @@ class MyWindow(QMainWindow):
                 print("searching more quadruples...")
                 hints = hints.union(
                     find_quadruple_inequalities(regions[:80], deep=True)
+                )
+            if not hints:
+                print("searching more two pairs...")
+                hints = hints.union(
+                    find_two_pairs_inequalities(regions[:80], deep=True)
                 )
             if hints:
                 print(f"{len(hints)} hints found")

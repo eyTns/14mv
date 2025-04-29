@@ -4,6 +4,8 @@ from itertools import combinations
 import pyautogui
 import pygetwindow as gw
 from pydantic import BaseModel
+from typing import Iterator
+
 
 from window.const import (
     CLICK_COORDINATES,
@@ -47,19 +49,23 @@ def get_total_mines(rule, cell_size):
 
 
 class Region(BaseModel):
-    value: int
     mines_needed: int
-    total_blanks: int
     blank_cells: set[tuple[int, int]]
+
+    @property
+    def total_blanks(self) -> int:
+        return len(self.blank_cells)
+
+    @property
+    def numbers_needed(self) -> int:
+        return self.total_blanks - self.mines_needed
 
     def __eq__(self, other: "Region") -> bool:
         return self.blank_cells == other.blank_cells
 
     def __sub__(self, other: "Region") -> "Region":
         return Region(
-            value=self.value - other.value,
             mines_needed=self.mines_needed - other.mines_needed,
-            total_blanks=self.total_blanks - other.total_blanks,
             blank_cells=self.blank_cells - other.blank_cells,
         )
 
@@ -98,9 +104,7 @@ def get_cell_region(grid, rule, row, col) -> Region:
 
     if neighboring_blanks:
         return Region(
-            value=grid[row][col],
             mines_needed=mines_needed,
-            total_blanks=len(neighboring_blanks),
             blank_cells=neighboring_blanks,
         )
     else:
@@ -120,9 +124,7 @@ def get_grid_region(grid, rule) -> Region:
                 blanks.add((r, c))
 
     return Region(
-        value=mine_value,
         mines_needed=mines_needed,
-        total_blanks=len(blanks),
         blank_cells=blanks,
     )
 
@@ -151,9 +153,7 @@ def get_row_column_region(grid, rule, row, col) -> Region:
             blanks.add((r, c))
 
     return Region(
-        value=mine_value,
         mines_needed=mines_needed,
-        total_blanks=len(blanks),
         blank_cells=blanks,
     )
 
@@ -192,248 +192,203 @@ def find_single_clickable_cells(regions_info: list[Region]):
     return hints
 
 
-def find_double_areas(regions_info: list[Region]):
+def deduce_double_inequalities(r1: Region, r2: Region):
     hints = set()
 
-    for i, region1 in enumerate(regions_info):
-        for j, region2 in enumerate(regions_info[i + 1 :]):
-            blanks1_set = region1.blank_cells
-            blanks2_set = region2.blank_cells
-            common_blanks = blanks1_set.intersection(blanks2_set)
+    r1b = r1.blank_cells
+    r2b = r2.blank_cells
+    r1on = r1b - r2b
+    r1m = r1.mines_needed
+    r2m = r2.mines_needed
 
-            if not common_blanks:
-                continue
+    if r1m - r2m >= len(r1on):
+        for blank_r, blank_c in r2b - r1b:
+            hints.add(("safe", (blank_r, blank_c)))
+        for blank_r, blank_c in r1b - r2b:
+            hints.add(("mine", (blank_r, blank_c)))
 
-            only_in_cell1 = blanks1_set - blanks2_set
-            only_in_cell2 = blanks2_set - blanks1_set
+    return hints
 
-            need1 = region1.mines_needed
-            need2 = region2.mines_needed
-            blank1 = len(only_in_cell1)
-            blank2 = len(only_in_cell2)
 
-            if blank1 <= need1 - need2:
-                for blank_r, blank_c in only_in_cell1:
-                    hints.add(("mine", (blank_r, blank_c)))
-                for blank_r, blank_c in only_in_cell2:
-                    hints.add(("safe", (blank_r, blank_c)))
-
-            if blank2 <= need2 - need1:
-                for blank_r, blank_c in only_in_cell2:
-                    hints.add(("mine", (blank_r, blank_c)))
-                for blank_r, blank_c in only_in_cell1:
-                    hints.add(("safe", (blank_r, blank_c)))
-
+def find_double_areas(regions_info: list[Region]):
+    hints = set()
+    for r1, r2 in combinations(regions_info, 2):
+        hints = hints.union(deduce_double_inequalities(r1, r2))
+        hints = hints.union(deduce_double_inequalities(r2, r1))
     return hints
 
 
 def find_triple_inclusions(regions_info: list[Region]):
     hints = set()
 
-    for i, region1 in enumerate(regions_info):
-        for j, region2 in enumerate(regions_info[i + 1 :], i + 1):
-            blanks1_set = region1.blank_cells
-            blanks2_set = region2.blank_cells
-            common_12 = blanks1_set.intersection(blanks2_set)
-            if common_12:
-                continue
+    for r1, r2, r3 in combinations(regions_info, 3):
+        if not r1.blank_cells.intersection(r2.blank_cells):
+            r12 = Region(
+                mines_needed=r1.mines_needed + r2.mines_needed,
+                blank_cells=r1.blank_cells.union(r2.blank_cells),
+            )
+            hints = hints.union(deduce_double_inequalities(r12, r3))
+            hints = hints.union(deduce_double_inequalities(r3, r12))
+        if not r2.blank_cells.intersection(r3.blank_cells):
+            r23 = Region(
+                mines_needed=r2.mines_needed + r3.mines_needed,
+                blank_cells=r2.blank_cells.union(r3.blank_cells),
+            )
+            hints = hints.union(deduce_double_inequalities(r23, r1))
+            hints = hints.union(deduce_double_inequalities(r1, r23))
+        if not r3.blank_cells.intersection(r1.blank_cells):
+            r31 = Region(
+                mines_needed=r3.mines_needed + r1.mines_needed,
+                blank_cells=r3.blank_cells.union(r1.blank_cells),
+            )
+            hints = hints.union(deduce_double_inequalities(r31, r2))
+            hints = hints.union(deduce_double_inequalities(r2, r31))
+    return hints
 
-            for k, region3 in enumerate(regions_info):
-                if i == k or j == k:
-                    continue
-                blanks3_set = region3.blank_cells
-                common_13 = blanks1_set.intersection(blanks3_set)
-                common_23 = blanks2_set.intersection(blanks3_set)
-                if not common_13 or not common_23:
-                    continue
 
-                newr1 = Region(
-                    value=region1.value + region2.value,
-                    mines_needed=region1.mines_needed + region2.mines_needed,
-                    total_blanks=region1.total_blanks + region2.total_blanks,
-                    blank_cells=region1.blank_cells.union(region2.blank_cells),
-                )
-                newr2 = region3
+def deduce_triple_inequalities(r1: Region, r2: Region, r3: Region):
+    hints = set()
 
-                only_in_cell1 = newr1.blank_cells - newr2.blank_cells
-                only_in_cell2 = newr2.blank_cells - newr1.blank_cells
+    r1b = r1.blank_cells
+    r2b = r2.blank_cells
+    r3b = r3.blank_cells
+    r1on = r1b - r2b - r3b
+    r1m = r1.mines_needed
+    r2m = r2.mines_needed
+    r3m = r3.mines_needed
+    r1n = r1.numbers_needed
+    r2n = r2.numbers_needed
+    r3n = r3.numbers_needed
 
-                need1 = newr1.mines_needed
-                need2 = newr2.mines_needed
-                blank1 = len(only_in_cell1)
-                blank2 = len(only_in_cell2)
-
-                if blank1 <= need1 - need2:
-                    for blank_r, blank_c in only_in_cell1:
-                        hints.add(("mine", (blank_r, blank_c)))
-                    for blank_r, blank_c in only_in_cell2:
-                        hints.add(("safe", (blank_r, blank_c)))
-                if blank2 <= need2 - need1:
-                    for blank_r, blank_c in only_in_cell2:
-                        hints.add(("mine", (blank_r, blank_c)))
-                    for blank_r, blank_c in only_in_cell1:
-                        hints.add(("safe", (blank_r, blank_c)))
+    if r1m - r2m - r3m + 1 >= len(r1on):
+        safe_cells = (r2b.intersection(r3b)) - r1b
+        if safe_cells:
+            for blank_r, blank_c in safe_cells:
+                hints.add(("safe", (blank_r, blank_c)))
+    if r1n - r2n - r3n + 1 >= len(r1on):
+        mine_cells = (r2b.intersection(r3b)) - r1b
+        if mine_cells:
+            for blank_r, blank_c in mine_cells:
+                hints.add(("mine", (blank_r, blank_c)))
 
     return hints
 
 
 def find_triple_inequalities(regions_info: list[Region], deep: bool = False):
     hints = set()
-
     for r1, r2, r3 in combinations(regions_info, 3):
-        r1b = r1.blank_cells
-        r2b = r2.blank_cells
-        r3b = r3.blank_cells
-        r1on = r1b - r2b - r3b
-        r2on = r2b - r3b - r1b
-        r3on = r3b - r1b - r2b
-        r1m = r1.mines_needed
-        r2m = r2.mines_needed
-        r3m = r3.mines_needed
-        r1n = r1.total_blanks - r1m
-        r2n = r2.total_blanks - r2m
-        r3n = r3.total_blanks - r3m
-
-        if r1m - r2m - r3m + 1 >= len(r1on):
-            safe_cells = (r2b.intersection(r3b)) - r1b
-            if safe_cells:
-                for blank_r, blank_c in safe_cells:
-                    hints.add(("safe", (blank_r, blank_c)))
-
-        if r2m - r3m - r1m + 1 >= len(r2on):
-            safe_cells = (r3b.intersection(r1b)) - r2b
-            if safe_cells:
-                for blank_r, blank_c in safe_cells:
-                    hints.add(("safe", (blank_r, blank_c)))
-
-        if r3m - r1m - r2m + 1 >= len(r3on):
-            safe_cells = (r1b.intersection(r2b)) - r3b
-            if safe_cells:
-                for blank_r, blank_c in safe_cells:
-                    hints.add(("safe", (blank_r, blank_c)))
-
-        if r1n - r2n - r3n + 1 >= len(r1on):
-            mine_cells = (r2b.intersection(r3b)) - r1b
-            if mine_cells:
-                for blank_r, blank_c in mine_cells:
-                    hints.add(("mine", (blank_r, blank_c)))
-
-        if r2n - r3n - r1n + 1 >= len(r2on):
-            mine_cells = (r3b.intersection(r1b)) - r2b
-            if mine_cells:
-                for blank_r, blank_c in mine_cells:
-                    hints.add(("mine", (blank_r, blank_c)))
-
-        if r3n - r1n - r2n + 1 >= len(r3on):
-            mine_cells = (r1b.intersection(r2b)) - r3b
-            if mine_cells:
-                for blank_r, blank_c in mine_cells:
-                    hints.add(("mine", (blank_r, blank_c)))
-
+        hints = hints.union(deduce_triple_inequalities(r1, r2, r3))
+        hints = hints.union(deduce_triple_inequalities(r2, r3, r1))
+        hints = hints.union(deduce_triple_inequalities(r3, r1, r2))
         if deep and hints:
             print(f"Triple hints: {hints}")
             return hints
+    return hints
+
+
+def deduce_quadruple_inequalities(r1: Region, r2: Region, r3: Region, r4: Region):
+    hints = set()
+
+    r1b = r1.blank_cells
+    r2b = r2.blank_cells
+    r3b = r3.blank_cells
+    r4b = r4.blank_cells
+    r1on = r1b - r2b - r3b - r4b
+    r1m = r1.mines_needed
+    r2m = r2.mines_needed
+    r3m = r3.mines_needed
+    r4m = r4.mines_needed
+    r1n = r1.numbers_needed
+    r2n = r2.numbers_needed
+    r3n = r3.numbers_needed
+    r4n = r4.numbers_needed
+
+    if r1m - r2m - r3m - r4m + 1 >= len(r1on):
+        safe23 = r2b.intersection(r3b)
+        safe34 = r3b.intersection(r4b)
+        safe42 = r4b.intersection(r2b)
+        safe_cells = safe23.union(safe34).union(safe42) - r1b
+        if safe_cells:
+            for blank_r, blank_c in safe_cells:
+                hints.add(("safe", (blank_r, blank_c)))
+
+    if r1n - r2n - r3n - r4n + 1 >= len(r1on):
+        mine23 = r2b.intersection(r3b)
+        mine34 = r3b.intersection(r4b)
+        mine42 = r4b.intersection(r2b)
+        mine_cells = mine23.union(mine34).union(mine42) - r1b
+        if mine_cells:
+            for blank_r, blank_c in mine_cells:
+                hints.add(("mine", (blank_r, blank_c)))
 
     return hints
 
 
 def find_quadruple_inequalities(regions_info: list[Region], deep: bool = False):
     hints = set()
+    for r1, r2, r3, r4 in combinations(regions_info, 4):
+        hints = hints.union(deduce_quadruple_inequalities(r1, r2, r3, r4))
+        hints = hints.union(deduce_quadruple_inequalities(r2, r3, r4, r1))
+        hints = hints.union(deduce_quadruple_inequalities(r3, r4, r1, r2))
+        hints = hints.union(deduce_quadruple_inequalities(r4, r1, r2, r3))
+        if deep and hints:
+            print(f"Quadruple hints: {hints}")
+            return hints
+    return hints
 
+
+def find_two_pairs_inequalities(regions_info: list[Region], deep: bool = False):
+    hints = set()
     for r1, r2, r3, r4 in combinations(regions_info, 4):
         r1b = r1.blank_cells
         r2b = r2.blank_cells
         r3b = r3.blank_cells
         r4b = r4.blank_cells
-        r1on = r1b - r2b - r3b - r4b
-        r2on = r2b - r3b - r4b - r1b
-        r3on = r3b - r4b - r1b - r2b
-        r4on = r4b - r1b - r2b - r3b
-        r1m = r1.mines_needed
-        r2m = r2.mines_needed
-        r3m = r3.mines_needed
-        r4m = r4.mines_needed
-        r1n = r1.total_blanks - r1m
-        r2n = r2.total_blanks - r2m
-        r3n = r3.total_blanks - r3m
-        r4n = r4.total_blanks - r4m
-
-        if r1m - r2m - r3m - r4m + 1 >= len(r1on):
-            safe23 = r2b.intersection(r3b)
-            safe34 = r3b.intersection(r4b)
-            safe42 = r4b.intersection(r2b)
-            safe_cells = safe23.union(safe34).union(safe42) - r1b
-            if safe_cells:
-                for blank_r, blank_c in safe_cells:
-                    hints.add(("safe", (blank_r, blank_c)))
-
-        if r2m - r3m - r4m - r1m + 1 >= len(r2on):
-            safe34 = r3b.intersection(r4b)
-            safe41 = r4b.intersection(r1b)
-            safe13 = r1b.intersection(r3b)
-            safe_cells = safe34.union(safe41).union(safe13) - r2b
-            if safe_cells:
-                for blank_r, blank_c in safe_cells:
-                    hints.add(("safe", (blank_r, blank_c)))
-
-        if r3m - r4m - r1m - r2m + 1 >= len(r3on):
-            safe41 = r4b.intersection(r1b)
-            safe12 = r1b.intersection(r2b)
-            safe24 = r2b.intersection(r4b)
-            safe_cells = safe41.union(safe12).union(safe24) - r3b
-            if safe_cells:
-                for blank_r, blank_c in safe_cells:
-                    hints.add(("safe", (blank_r, blank_c)))
-
-        if r4m - r1m - r2m - r3m + 1 >= len(r4on):
-            safe12 = r1b.intersection(r2b)
-            safe23 = r2b.intersection(r3b)
-            safe31 = r3b.intersection(r1b)
-            safe_cells = safe12.union(safe23).union(safe31) - r4b
-            if safe_cells:
-                for blank_r, blank_c in safe_cells:
-                    hints.add(("safe", (blank_r, blank_c)))
-
-        if r1n - r2n - r3n - r4n + 1 >= len(r1on):
-            mine23 = r2b.intersection(r3b)
-            mine34 = r3b.intersection(r4b)
-            mine42 = r4b.intersection(r2b)
-            mine_cells = mine23.union(mine34).union(mine42) - r1b
-            if mine_cells:
-                for blank_r, blank_c in mine_cells:
-                    hints.add(("mine", (blank_r, blank_c)))
-
-        if r2n - r3n - r4n - r1n + 1 >= len(r2on):
-            mine34 = r3b.intersection(r4b)
-            mine41 = r4b.intersection(r1b)
-            mine13 = r1b.intersection(r3b)
-            mine_cells = mine34.union(mine41).union(mine13) - r2b
-            if mine_cells:
-                for blank_r, blank_c in mine_cells:
-                    hints.add(("mine", (blank_r, blank_c)))
-
-        if r3n - r4n - r1n - r2n + 1 >= len(r3on):
-            mine41 = r4b.intersection(r1b)
-            mine12 = r1b.intersection(r2b)
-            mine24 = r2b.intersection(r4b)
-            mine_cells = mine41.union(mine12).union(mine24) - r3b
-            if mine_cells:
-                for blank_r, blank_c in mine_cells:
-                    hints.add(("mine", (blank_r, blank_c)))
-
-        if r4n - r1n - r2n - r3n + 1 >= len(r4on):
-            mine12 = r1b.intersection(r2b)
-            mine23 = r2b.intersection(r3b)
-            mine31 = r3b.intersection(r1b)
-            mine_cells = mine12.union(mine23).union(mine31) - r4b
-            if mine_cells:
-                for blank_r, blank_c in mine_cells:
-                    hints.add(("mine", (blank_r, blank_c)))
-
-        if deep and hints:
-            print(f"Quadruple hints: {hints}")
+        # if not deep:
+        #     print(r1b, r2b, r3b, r4b)
+        if r1b.intersection(r2b) == r3b.intersection(r4b):
+            r12 = Region(
+                mines_needed=r1.mines_needed + r2.mines_needed,
+                blank_cells=r1.blank_cells.union(r2.blank_cells),
+            )
+            r34 = Region(
+                mines_needed=r3.mines_needed + r4.mines_needed,
+                blank_cells=r3.blank_cells.union(r4.blank_cells),
+            )
+            # if not deep:
+            #     print(r12, r34)
+            hints = hints.union(deduce_double_inequalities(r12, r34))
+            hints = hints.union(deduce_double_inequalities(r34, r12))
+        if r1b.intersection(r3b) == r2b.intersection(r4b):
+            r13 = Region(
+                mines_needed=r1.mines_needed + r3.mines_needed,
+                blank_cells=r1.blank_cells.union(r3.blank_cells),
+            )
+            r24 = Region(
+                mines_needed=r2.mines_needed + r4.mines_needed,
+                blank_cells=r2.blank_cells.union(r4.blank_cells),
+            )
+            # if not deep:
+            #     print(r13, r24)
+            hints = hints.union(deduce_double_inequalities(r13, r24))
+            hints = hints.union(deduce_double_inequalities(r24, r13))
+        if r1b.intersection(r4b) == r2b.intersection(r3b):
+            r14 = Region(
+                mines_needed=r1.mines_needed + r4.mines_needed,
+                blank_cells=r1.blank_cells.union(r4.blank_cells),
+            )
+            r23 = Region(
+                mines_needed=r2.mines_needed + r3.mines_needed,
+                blank_cells=r2.blank_cells.union(r3.blank_cells),
+            )
+            # if not deep:
+            #     print(r14, r23)
+            hints = hints.union(deduce_double_inequalities(r14, r23))
+            hints = hints.union(deduce_double_inequalities(r23, r14))
+        # if deep and hints:
+        if hints:
+            print(f"Two Pair hints: {hints}")
             return hints
-
     return hints
 
 
