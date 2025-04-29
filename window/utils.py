@@ -5,7 +5,13 @@ import pyautogui
 import pygetwindow as gw
 from pydantic import BaseModel
 
-from window.const import CLICK_COORDINATES, NEIGHBORS, TOTAL_MINES, INITIAL_POSITIONS
+from window.const import (
+    CLICK_COORDINATES,
+    NEIGHBORS,
+    TOTAL_MINES,
+    INITIAL_POSITIONS,
+    INITIAL_POSITIONS_2,
+)
 from window.image_utils import (
     PuzzleStatus,
     capture_window_screenshot,
@@ -424,8 +430,7 @@ def find_quadruple_inequalities(regions_info: list[Region], deep: bool = False):
                 for blank_r, blank_c in mine_cells:
                     hints.add(("mine", (blank_r, blank_c)))
 
-        # if deep and hints:
-        if hints:
+        if deep and hints:
             print(f"Quadruple hints: {hints}")
             return hints
 
@@ -461,18 +466,15 @@ def apply_hints(grid: list[list[int]], hints):
     return grid
 
 
-def location_to_cell_coordinates(location, size):
-    if size not in INITIAL_POSITIONS:
-        raise ValueError("Invalid size. Size should be 5, 6, 7, or 8.")
-
+def location_to_cell_coordinates(window_title, location, size):
     row, col = location
-    if not (0 <= row < size and 0 <= col < size):
-        raise ValueError(
-            f"Invalid location. Row and column should be between 0 and {size-1}"
-        )
 
-    initial_x, initial_y = INITIAL_POSITIONS[size]
-    x_increment, y_increment = 50, 50
+    if window_title == "Minesweeper Variants":
+        initial_x, initial_y = INITIAL_POSITIONS[size]
+        x_increment, y_increment = 50, 50
+    elif window_title == "Minesweeper Variants 2":
+        initial_x, initial_y = INITIAL_POSITIONS_2[size]
+        x_increment, y_increment = 45, 45
 
     x1 = initial_x + col * x_increment
     y1 = initial_y + row * y_increment
@@ -522,7 +524,9 @@ def click_hints(window_title, hints, size):
     clicks = []
     for hint in hints:
         location = hint[1]
-        relative_x, relative_y = location_to_cell_coordinates(location, size)
+        relative_x, relative_y = location_to_cell_coordinates(
+            window_title, location, size
+        )
         button_type = "left" if hint[0] == "safe" else "right"
         clicks.append((relative_x, relative_y, button_type))
     return click_positions(window_title, clicks)

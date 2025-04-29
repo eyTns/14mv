@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 import pygetwindow as gw
 from PIL import Image, ImageGrab
-from window.const import INITIAL_POSITIONS
+from window.const import INITIAL_POSITIONS, INITIAL_POSITIONS_2, SPECIAL_CELLS
 
 
 def imread(filename, flags=cv2.IMREAD_COLOR, dtype=np.uint8):
@@ -54,18 +54,23 @@ def capture_window_screenshot(window_title):
         return False
 
 
-
-
 def detect_cell_size(window_title):
     capture_window_screenshot(window_title)
     screenshot = imread(f"{window_title}.png")
+    gray = (128, 128, 128)
     white = (255, 255, 255)
     for size in [8, 7, 6, 5]:
-        x, y = INITIAL_POSITIONS[size]
-        color = screenshot[y, x]
-        if (color == white).all():
-            return size
-    return None
+        if window_title == "Minesweeper Variants":
+            x, y = INITIAL_POSITIONS[size]
+            color = screenshot[y, x]
+            if (color == white).all():
+                return size
+        elif window_title == "Minesweeper Variants 2":
+            x, y = INITIAL_POSITIONS_2[size]
+            color = screenshot[y - 1, x - 1]
+            if (color > gray).all():
+                return size
+    raise ValueError("cell_size not found")
 
 
 def find_template_in_screenshot(screenshot_path, template_path):
@@ -88,46 +93,29 @@ def find_template_in_screenshot(screenshot_path, template_path):
         return None
 
 
-def get_cropped_cell_coordinates(size):
-    if size not in INITIAL_POSITIONS:
-        raise ValueError("Invalid size. Size should be 5, 6, 7, or 8.")
-    initial_x, initial_y = INITIAL_POSITIONS[size]
-    x_increment, y_increment = 50, 50
+def get_cropped_cell_coordinates(window_title, size):
+    if window_title == "Minesweeper Variants":
+        initial_x, initial_y = INITIAL_POSITIONS[size]
+        x_increment, y_increment = 50, 50
+    elif window_title == "Minesweeper Variants 2":
+        initial_x, initial_y = INITIAL_POSITIONS_2[size]
+        x_increment, y_increment = 45, 45
     cell_coordinates = []
     for row in range(size):
         row_coordinates = []
         for col in range(size):
             x1 = initial_x + col * x_increment
             y1 = initial_y + row * y_increment
-            x2 = x1 + x_increment
-            y2 = y1 + y_increment
+            if window_title == "Minesweeper Variants":
+                x2 = x1 + x_increment
+                y2 = y1 + y_increment
+            elif window_title == "Minesweeper Variants 2":
+                x2 = x1 + x_increment - 3
+                y2 = y1 + y_increment - 3
             row_coordinates.append((x1, y1, x2, y2))
         cell_coordinates.append(row_coordinates)
 
     return cell_coordinates
-
-
-def find_all_templates_in_screenshot(screenshot_path, template_path):
-    try:
-        screenshot = Image.open(screenshot_path)
-        template = Image.open(template_path)
-        screenshot_width, screenshot_height = screenshot.size
-        template_width, template_height = template.size
-        positions = []
-        screenshot_region = None
-        for x in range(screenshot_width - template_width + 1):
-            for y in range(screenshot_height - template_height + 1):
-                screenshot_region = screenshot.crop(
-                    (x, y, x + template_width, y + template_height)
-                )
-                if (x, y) in INITIAL_POSITIONS.values():
-                    screenshot_region.save(f"screenshot_region_{x}_{y}.png")
-                if screenshot_region == template:
-                    positions.append((x, y))
-        return positions
-    except Exception as e:
-        print(f"Error while searching for templates: {e}")
-        return []
 
 
 def compare_image_same(image_path_1, image_path_2):
@@ -143,9 +131,9 @@ def MSE_of_images(image_path_1, image_path_2):
     return mse
 
 
-def find_best_template_filename(captured_cell_path):
+def find_best_template_filename(window_title, captured_cell_path):
     current_directory = os.path.dirname(os.path.abspath(__file__))
-    templates_directory = os.path.join(current_directory, "..", "images")
+    templates_directory = os.path.join(current_directory, "..", "images", window_title)
     best_template_filename = None
     min_mse = float("inf")
     for template_filename in os.listdir(templates_directory):
@@ -166,8 +154,9 @@ def find_best_template_filename(captured_cell_path):
         return None, None
 
 
-def find_best_fit_cells(screenshot_path, cell_size):
-    cell_coordinates = get_cropped_cell_coordinates(cell_size)
+def find_best_fit_cells(window_title, cell_size):
+    screenshot_path = f"{window_title}.png"
+    cell_coordinates = get_cropped_cell_coordinates(window_title, cell_size)
     screenshot = imread(screenshot_path)
     best_fit_filenames = []
     for row in cell_coordinates:
@@ -175,30 +164,32 @@ def find_best_fit_cells(screenshot_path, cell_size):
         for coordinates in row:
             x1, y1, x2, y2 = coordinates
             captured_cell = screenshot[y1:y2, x1:x2]
-            temp_dir = "C:/dev/14mv/temp"  ## should not have korean
+            temp_dir = "C:/dev/14mv/temp"  # should not have korean
             captured_cell_filename = os.path.join(
                 temp_dir, f"captured_cell_{coordinates[0]}_{coordinates[1]}.png"
             )
             imwrite(captured_cell_filename, captured_cell)
             best_template_filename, min_mse = find_best_template_filename(
-                captured_cell_filename
+                window_title, captured_cell_filename
             )
             row_best_fit.append(best_template_filename)
         best_fit_filenames.append(row_best_fit)
     return best_fit_filenames
 
 
+def parse_cell(filename):
+    if not filename:
+        return None
+    name = filename.split(".")[0]
+    value = name.split("_")[1]
+
+    if value in SPECIAL_CELLS:
+        return SPECIAL_CELLS[value]
+    return int(value)
+
+
 def convert_to_numeric(best_fit_cells) -> list[list[int]]:
-    filename_to_numeric = {f"cell_{i}.png": i for i in range(0, 9 + 1)}
-    filename_to_numeric.update(
-        {
-            "cell_blank.png": -1,
-            "cell_flag.png": -2,
-            "cell_question.png": -3,
-            "cell_star.png": -3,
-        }
-    )
-    return [[filename_to_numeric[cell] for cell in row] for row in best_fit_cells]
+    return [[parse_cell(cell) for cell in row] for row in best_fit_cells]
 
 
 class PuzzleStatus(Enum):

@@ -126,6 +126,12 @@ class MyWindow(QMainWindow):
         self.rule = conf["rule"].upper()
         self.cell_size = detect_cell_size(self.window_title)
 
+        # # iterate forever
+        # while True:
+        #     self.process_game_data()
+        #     print("skipping level")
+        #     skip_level(self.window_title)
+
         self.process_game_data()
 
         self.setWindowTitle("14mv solve")
@@ -159,7 +165,7 @@ class MyWindow(QMainWindow):
 
         while True:
             capture_window_screenshot(self.window_title)
-            best_fit_cells = find_best_fit_cells(save_path, self.cell_size)
+            best_fit_cells = find_best_fit_cells(self.window_title, self.cell_size)
             grid = convert_to_numeric(best_fit_cells)
             hints = set()
             hint_count = len(hints)
