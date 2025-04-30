@@ -181,18 +181,18 @@ class MyWindow(QMainWindow):
             # 초기 힌트 재귀적 적용
             while True:
                 regions = analyze_regions(grid, self.rule)
-                hints = hints.union(find_single_clickable_cells(regions))
+                hints.update(find_single_clickable_cells(regions))
                 if self.rule == "UW":
-                    hints = hints.union(find_flag_adjacent_cells(grid))
+                    hints.update(find_flag_adjacent_cells(grid))
                 if "Q" in self.rule:
-                    hints = hints.union(find_remaining_cells_from_quad(grid))
+                    hints.update(find_remaining_cells_from_quad(grid))
                 if "T" in self.rule:
-                    hints = hints.union(find_single_cell_from_triplet(grid))
-                hints = hints.union(find_double_areas(regions))
-                hints = hints.union(find_triple_inclusions(regions))
-                hints = hints.union(find_triple_inequalities(regions))
-                hints = hints.union(find_quadruple_inequalities(regions[:80]))
-                hints = hints.union(find_two_pairs_inequalities(regions[:80]))
+                    hints.update(find_single_cell_from_triplet(grid))
+                hints.update(find_double_areas(regions))
+                hints.update(find_triple_inclusions(regions))
+                hints.update(find_triple_inequalities(regions))
+                hints.update(find_quadruple_inequalities(regions[:80]))
+                hints.update(find_two_pairs_inequalities(regions[:80]))
                 if hint_count < len(hints):
                     hint_count = len(hints)
                     grid = apply_hints(grid, hints)
@@ -224,8 +224,8 @@ class MyWindow(QMainWindow):
             regions = diff_regions(regions)
             print(f"diff regions: {len(regions)}")
             hints = set()
-            hints = hints.union(find_single_clickable_cells(regions))
-            hints = hints.union(find_double_areas(regions))
+            hints.update(find_single_clickable_cells(regions))
+            hints.update(find_double_areas(regions))
             if not hints:
                 print("searching more triples...")
                 hints = hints.union(find_triple_inequalities(regions[:150], deep=True))

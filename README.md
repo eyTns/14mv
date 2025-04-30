@@ -56,6 +56,7 @@ This application failed to start because no Qt platform plugin could be initiali
   - 될때까지 꼬꼬무
 - 리팩토링 - 새 규칙을 추가하는 장소를 한군데로 몰아놓기
 - 리팩토링 - 규칙 추가할때 코드에서 공통적인 부분 수집
+- [+]!5x5 해금하기
 
 
 ## ✅ Done

@@ -159,7 +159,7 @@ def test_minesweeper_hints2():
     number_cells_info = analyze_regions(grid, "V")
     single_cell_hints = find_single_clickable_cells(number_cells_info)
     common_area_hints = find_double_areas(number_cells_info)
-    all_hints = single_cell_hints.union(common_area_hints)
+    all_hints = single_cell_hints | common_area_hints
     safe_cells = [(hint[1][0], hint[1][1]) for hint in all_hints if hint[0] == "safe"]
     mine_cells = [(hint[1][0], hint[1][1]) for hint in all_hints if hint[0] == "mine"]
 
