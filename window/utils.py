@@ -233,7 +233,47 @@ def find_remaining_cells_from_quad(grid):
                     break
             if blank_count == 1:
                 hints.add(("mine", blank_pos))
+    return hints
 
+
+def find_single_cell_from_triplet(grid):
+    """Rule T: 가로, 세로, 대각선으로 연속한 3개의 셀 중 2개가 지뢰이고 나머지가 빈칸이면 그건 숫자다"""
+    height = len(grid)
+    width = len(grid[0])
+    hints = set()
+    directions = [
+        [(0, 0), (0, 1), (0, 2)],
+        [(0, 0), (1, 0), (2, 0)],
+        [(0, 0), (1, 1), (2, 2)],
+        [(0, 2), (1, 1), (2, 0)],
+    ]
+    for row in range(height):
+        for col in range(width):
+            for direction in directions:
+                cells = []
+                valid = True
+                flag_count = 0
+                blank_pos = None
+                for dr, dc in direction:
+                    new_row = row + dr
+                    new_col = col + dc
+                    if not (0 <= new_row < height and 0 <= new_col < width):
+                        valid = False
+                        break
+
+                    cell_value = grid[new_row][new_col]
+                    cells.append((new_row, new_col, cell_value))
+                    if cell_value == SPECIAL_CELLS["flag"]:
+                        flag_count += 1
+                    elif cell_value == SPECIAL_CELLS["blank"]:
+                        if blank_pos is None:
+                            blank_pos = (new_row, new_col)
+                        else:
+                            valid = False
+                            break
+
+                if valid and flag_count == 2 and blank_pos is not None:
+                    hints.add(("safe", blank_pos))
     return hints
 
 
@@ -423,7 +463,7 @@ def find_two_pairs_inequalities(regions_info: list[Region], deep: bool = False):
             hints = hints.union(deduce_double_inequalities(r14, r23))
             hints = hints.union(deduce_double_inequalities(r23, r14))
         if deep and hints:
-        # if hints:
+            # if hints:
             print(f"Two Pair hints: {hints}")
             return hints
     return hints
@@ -539,13 +579,57 @@ class ExpandedRegion(BaseModel):
 
         return ExpandedRegion(blank_cells=self.blank_cells, cases=filtered_cases)
 
+    def filter_triplet_mines(self, grid) -> "ExpandedRegion":
+        """Rule T: 가로, 세로, 대각선으로 지뢰가 3개 연속한 케이스들을 제거"""
+        height = len(grid)
+        width = len(grid[0])
+        filtered_cases = []
+        directions = [
+            [(0, 0), (0, 1), (0, 2)],
+            [(0, 0), (1, 0), (2, 0)],
+            [(0, 0), (1, 1), (2, 2)],
+            [(0, 0), (1, -1), (2, -2)],
+        ]
+
+        for case in self.cases:
+            applied_grid = [row[:] for row in grid]
+            for idx, cell in enumerate(self.blank_cells):
+                row, col = cell
+                if case & (1 << idx):
+                    applied_grid[row][col] = SPECIAL_CELLS["flag"]
+            has_triplet_mines = False
+            for row in range(height):
+                for col in range(width):
+                    for direction in directions:
+                        triplet_valid = True
+                        triplet_mines = True
+                        for dr, dc in direction:
+                            new_row = row + dr
+                            new_col = col + dc
+                            if not (0 <= new_row < height and 0 <= new_col < width):
+                                triplet_valid = False
+                                break
+                            if applied_grid[new_row][new_col] != SPECIAL_CELLS["flag"]:
+                                triplet_mines = False
+                                break
+                        if triplet_valid and triplet_mines:
+                            has_triplet_mines = True
+                            break
+                    if has_triplet_mines:
+                        break
+                if has_triplet_mines:
+                    break
+            if not has_triplet_mines:
+                filtered_cases.append(case)
+        return ExpandedRegion(blank_cells=self.blank_cells, cases=filtered_cases)
+
 
 def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
     expanded_regions = []
     for region in regions:
         blank_cells = list(region.blank_cells)
         combinations_count = comb(len(blank_cells), region.mines_needed)
-        MAX_CASES = 40000
+        MAX_CASES = 100000
         if combinations_count > MAX_CASES:
             continue
         mine_combinations = list(combinations(blank_cells, region.mines_needed))
@@ -556,6 +640,8 @@ def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
             expanded_region = expanded_region.filter_adjacent_mines()
         if "Q" in rule:
             expanded_region = expanded_region.filter_no_mine_quads(grid)
+        if "T" in rule:
+            expanded_region = expanded_region.filter_triplet_mines(grid)
         expanded_regions.append(expanded_region)
     return expanded_regions
 
@@ -590,6 +676,52 @@ def get_quad_expanded_regions(grid) -> list[ExpandedRegion]:
                 cases.append(i)
             if cases:
                 regions.append(ExpandedRegion(blank_cells=blank_cells, cases=cases))
+
+    return regions
+
+
+def get_triplet_expanded_regions(grid) -> list[ExpandedRegion]:
+    """Rule T: 모든 연속된 3개의 셀에는 숫자가 1개 이상 있다"""
+    height = len(grid)
+    width = len(grid[0])
+    regions = []
+    directions = [
+        [(0, 0), (0, 1), (0, 2)],
+        [(0, 0), (1, 0), (2, 0)],
+        [(0, 0), (1, 1), (2, 2)],
+        [(0, 0), (1, -1), (2, -2)],
+    ]
+
+    for row in range(height):
+        for col in range(width):
+            for direction in directions:
+                triplet_cells = []
+                valid = True
+                for dr, dc in direction:
+                    new_row = row + dr
+                    new_col = col + dc
+                    if not (0 <= new_row < height and 0 <= new_col < width):
+                        valid = False
+                        break
+                    triplet_cells.append((new_row, new_col))
+                if not valid:
+                    continue
+                blank_cells = []
+                has_number = False
+                for r, c in triplet_cells:
+                    if grid[r][c] == SPECIAL_CELLS["blank"]:
+                        blank_cells.append((r, c))
+                    elif grid[r][c] not in [-1, -2]:
+                        has_number = True
+                        break
+                if has_number or not blank_cells:
+                    continue
+                num_blanks = len(blank_cells)
+                cases = []
+                for i in range(2**num_blanks - 1):
+                    cases.append(i)
+                if cases:
+                    regions.append(ExpandedRegion(blank_cells=blank_cells, cases=cases))
 
     return regions
 
@@ -699,24 +831,22 @@ def solve_with_expanded_regions(
     eregions: list[ExpandedRegion],
 ) -> list[tuple[str, tuple[int, int]]]:
     hints = set()
-    MAX_CASES = 4000
+    MAX_CASES = 10000
 
     reduced_regions = []
     for region in eregions:
         new_hints, reduced = extract_hints(region)
         if new_hints:
-            # return new_hints
             hints.update(new_hints)
         if reduced and 1 < len(reduced.cases) <= MAX_CASES:
             reduced_regions.append(reduced)
 
-    if hints:
-        return hints
-
     eregions = reduced_regions
 
+    start_time = time.time()
+
     while len(eregions) > 1:
-        print(f"Remaining regions: {len(eregions)}")
+        # print(f"Remaining regions: {len(eregions)}")
         eregions.sort(key=lambda r: len(r.cases))
         r1 = eregions.pop(0)
 
@@ -738,7 +868,7 @@ def solve_with_expanded_regions(
                     best_reduced = reduced
                     # best_hints = new_hints if new_hints else set()
                     best_partner_idx = i
-        if hints:
+        if time.time() - start_time > 0.5 and hints:
             return hints
         if best_partner_idx is not None:
             eregions.pop(best_partner_idx)

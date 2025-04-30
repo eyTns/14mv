@@ -23,19 +23,21 @@ from window.utils import (
     apply_hints,
     click_hints,
     diff_regions,
+    expand_regions,
     find_double_areas,
+    find_flag_adjacent_cells,
     find_quadruple_inequalities,
+    find_remaining_cells_from_quad,
+    find_single_cell_from_triplet,
     find_single_clickable_cells,
     find_triple_inclusions,
     find_triple_inequalities,
     find_two_pairs_inequalities,
+    get_quad_expanded_regions,
+    get_triplet_expanded_regions,
     next_level_check,
     skip_level,
-    expand_regions,
     solve_with_expanded_regions,
-    find_flag_adjacent_cells,
-    find_remaining_cells_from_quad,
-    get_quad_expanded_regions,
 )
 
 
@@ -184,42 +186,19 @@ class MyWindow(QMainWindow):
                     hints = hints.union(find_flag_adjacent_cells(grid))
                 if "Q" in self.rule:
                     hints = hints.union(find_remaining_cells_from_quad(grid))
+                if "T" in self.rule:
+                    hints = hints.union(find_single_cell_from_triplet(grid))
                 hints = hints.union(find_double_areas(regions))
                 hints = hints.union(find_triple_inclusions(regions))
                 hints = hints.union(find_triple_inequalities(regions))
-                # hints = hints.union(find_quadruple_inequalities(regions[:80]))
-                # hints = hints.union(find_two_pairs_inequalities(regions[:80]))
+                hints = hints.union(find_quadruple_inequalities(regions[:80]))
+                hints = hints.union(find_two_pairs_inequalities(regions[:80]))
                 if hint_count < len(hints):
                     hint_count = len(hints)
                     grid = apply_hints(grid, hints)
                     continue
                 break
             if hints:
-                click_hints(self.window_title, hints, self.cell_size)
-                next_level_check(self.window_title, save_path)
-                continue
-
-            # 영역 차집합 포함
-            regions = diff_regions(regions)
-            print(f"diff regions: {len(regions)}")
-            hints = set()
-            hints = hints.union(find_single_clickable_cells(regions))
-            hints = hints.union(find_double_areas(regions))
-            # if not hints:
-            #     print("searching more triples...")
-            #     hints = hints.union(find_triple_inequalities(regions[:150], deep=True))
-            # if not hints:
-            #     print("searching more quadruples...")
-            #     hints = hints.union(
-            #         find_quadruple_inequalities(regions[:50], deep=True)
-            #     )
-            # if not hints:
-            #     print("searching more two pairs...")
-            #     hints = hints.union(
-            #         find_two_pairs_inequalities(regions[:50], deep=True)
-            #     )
-            if hints:
-                print(f"{len(hints)} hints found")
                 click_hints(self.window_title, hints, self.cell_size)
                 next_level_check(self.window_title, save_path)
                 continue
@@ -231,13 +210,41 @@ class MyWindow(QMainWindow):
             eregions = expand_regions(regions, grid, self.rule)
             if "Q" in self.rule:
                 eregions.extend(get_quad_expanded_regions(grid))
+            if "T" in self.rule:
+                eregions.extend(get_triplet_expanded_regions(grid))
             hints = solve_with_expanded_regions(eregions)
             if hints:
                 print(f"{len(hints)} hints found")
-                print(hints)
+                # print(hints)
                 click_hints(self.window_title, hints, self.cell_size)
                 next_level_check(self.window_title, save_path)
                 continue
+
+            # 영역 차집합 포함
+            regions = diff_regions(regions)
+            print(f"diff regions: {len(regions)}")
+            hints = set()
+            hints = hints.union(find_single_clickable_cells(regions))
+            hints = hints.union(find_double_areas(regions))
+            if not hints:
+                print("searching more triples...")
+                hints = hints.union(find_triple_inequalities(regions[:150], deep=True))
+            if not hints:
+                print("searching more quadruples...")
+                hints = hints.union(
+                    find_quadruple_inequalities(regions[:50], deep=True)
+                )
+            if not hints:
+                print("searching more two pairs...")
+                hints = hints.union(
+                    find_two_pairs_inequalities(regions[:50], deep=True)
+                )
+            if hints:
+                print(f"{len(hints)} hints found")
+                click_hints(self.window_title, hints, self.cell_size)
+                next_level_check(self.window_title, save_path)
+                continue
+
             break
 
     def start_new_process(self):

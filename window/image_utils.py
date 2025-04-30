@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import pygetwindow as gw
 from PIL import Image, ImageGrab
+
 from window.const import INITIAL_POSITIONS, INITIAL_POSITIONS_2, SPECIAL_CELLS
 
 
