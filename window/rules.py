@@ -1,5 +1,5 @@
-from window.const import SPECIAL_CELLS, RULE_Q, RULE_T, RULE_U
-
+from window.const import RULE_Q, RULE_T, RULE_U, SPECIAL_CELLS
+from window.region import ExpandedRegion, Region
 
 ####################################
 
@@ -52,12 +52,13 @@ def is_valid_case_for_rule(
 
 
 def filter_cases_by_rule(
-    blank_cells: list[tuple[int, int]],
-    cases: list[int],
+    expanded_region: ExpandedRegion,
     grid: list[list[int]],
     rule: dict,
-) -> tuple[list[tuple[int, int]], list[int]]:
+) -> ExpandedRegion:
     """주어진 룰에 따라 케이스들을 필터링"""
+    blank_cells = expanded_region.blank_cells
+    cases = expanded_region.cases
     filtered_cases = []
     for case in cases:
         applied_grid = [row[:] for row in grid]
@@ -70,7 +71,7 @@ def filter_cases_by_rule(
         if is_valid_case_for_rule(applied_grid, rule):
             filtered_cases.append(case)
 
-    return blank_cells, filtered_cases
+    return ExpandedRegion(blank_cells=blank_cells, cases=filtered_cases)
 
 
 ################################
@@ -160,12 +161,12 @@ def find_single_cell_from_triplet(grid):
 ################################
 
 
-def get_expanded_regions_by_rule(grid, rule) -> list:
+def get_expanded_regions_by_rule(grid, rule) -> list[ExpandedRegion]:
     height = len(grid)
     width = len(grid[0])
     directions = rule["directions"]
     pattern_condition = rule["pattern_condition"]
-    tuples = []
+    expanded_regions = []
 
     for row in range(height):
         for col in range(width):
@@ -205,8 +206,8 @@ def get_expanded_regions_by_rule(grid, rule) -> list:
                 elif pattern_condition == "no_all_mines":
                     cases = list(range(2**num_blanks - 1))
                 if cases:
-                    tuples.append((blank_cells, cases))
-    return tuples
+                    expanded_regions.append(ExpandedRegion(blank_cells, cases))
+    return expanded_regions
 
 
 # def get_quad_expanded_regions(grid) -> list:

@@ -11,13 +11,21 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from window.const import RULE_Q, RULE_T, RULE_U
 from window.image_utils import (
     capture_window_screenshot,
     convert_to_numeric,
     detect_cell_size,
     find_best_fit_cells,
 )
+from window.rules import (  # get_quad_expanded_regions,; get_triplet_expanded_regions,; get_single_expanded_regions,
+    find_flag_adjacent_cells,
+    find_remaining_cells_from_quad,
+    find_single_cell_from_triplet,
+    get_expanded_regions_by_rule,
+)
 from window.utils import (
+    ExpandedRegion,
     activate_window,
     analyze_regions,
     apply_hints,
@@ -33,18 +41,7 @@ from window.utils import (
     next_level_check,
     skip_level,
     solve_with_expanded_regions,
-    ExpandedRegion,
 )
-from window.rules import (
-    find_flag_adjacent_cells,
-    find_remaining_cells_from_quad,
-    find_single_cell_from_triplet,
-    # get_quad_expanded_regions,
-    # get_triplet_expanded_regions,
-    # get_single_expanded_regions,
-    get_expanded_regions_by_rule,
-)
-from window.const import RULE_Q, RULE_T, RULE_U
 
 
 class HeaderFrame(QFrame):
@@ -216,21 +213,17 @@ class MyWindow(QMainWindow):
             regions = analyze_regions(grid, self.rule)
             eregions = expand_regions(regions, grid, self.rule)
             if "Q" in self.rule:
-                tuples = get_expanded_regions_by_rule(grid, RULE_Q)
-                for bc, cases in tuples:
-                    eregions.append(ExpandedRegion(blank_cells=bc, cases=cases))
+                eregions_rule = get_expanded_regions_by_rule(grid, RULE_Q)
+                eregions.extend(eregions_rule)
             if "T" in self.rule:
-                tuples = get_expanded_regions_by_rule(grid, RULE_T)
-                for bc, cases in tuples:
-                    eregions.append(ExpandedRegion(blank_cells=bc, cases=cases))
+                eregions_rule = get_expanded_regions_by_rule(grid, RULE_T)
+                eregions.extend(eregions_rule)
             if "U" in self.rule:
-                tuples = get_expanded_regions_by_rule(grid, RULE_U)
-                for bc, cases in tuples:
-                    eregions.append(ExpandedRegion(blank_cells=bc, cases=cases))
+                eregions_rule = get_expanded_regions_by_rule(grid, RULE_U)
+                eregions.extend(eregions_rule)
             hints = solve_with_expanded_regions(eregions)
             if hints:
                 print(f"{len(hints)} hints found")
-                # print(hints)
                 click_hints(self.window_title, hints, self.cell_size)
                 next_level_check(self.window_title, save_path)
                 continue

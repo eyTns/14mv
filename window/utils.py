@@ -1,26 +1,26 @@
 import time
 from itertools import combinations
+from math import comb
+from typing import Iterator
 
 import pyautogui
 import pygetwindow as gw
 from pydantic import BaseModel
-from typing import Iterator
-from math import comb
-from window.rules import filter_cases_by_rule, is_valid_case_for_rule
 
 from window.const import (
     CLICK_COORDINATES,
-    NEIGHBORS,
-    TOTAL_MINES,
     INITIAL_POSITIONS,
     INITIAL_POSITIONS_2,
-    SPECIAL_CELLS, RULE_Q, RULE_T, RULE_U
+    NEIGHBORS,
+    RULE_Q,
+    RULE_T,
+    RULE_U,
+    SPECIAL_CELLS,
+    TOTAL_MINES,
 )
-from window.image_utils import (
-    PuzzleStatus,
-    capture_window_screenshot,
-    completed_check,
-)
+from window.image_utils import PuzzleStatus, capture_window_screenshot, completed_check
+from window.region import ExpandedRegion, Region
+from window.rules import is_valid_case_for_rule
 
 
 def get_neighboring_cells(row, col, grid):
@@ -48,28 +48,6 @@ def get_total_mines(rule, cell_size):
         return TOTAL_MINES[rule][cell_size - 5]
     else:
         return None
-
-
-class Region(BaseModel):
-    mines_needed: int
-    blank_cells: set[tuple[int, int]]
-
-    @property
-    def total_blanks(self) -> int:
-        return len(self.blank_cells)
-
-    @property
-    def numbers_needed(self) -> int:
-        return self.total_blanks - self.mines_needed
-
-    def __eq__(self, other: "Region") -> bool:
-        return self.blank_cells == other.blank_cells
-
-    def __sub__(self, other: "Region") -> "Region":
-        return Region(
-            mines_needed=self.mines_needed - other.mines_needed,
-            blank_cells=self.blank_cells - other.blank_cells,
-        )
 
 
 def get_cell_region(grid, rule, row, col) -> Region:
@@ -402,39 +380,6 @@ def diff_regions(regions: list[Region]):
             return regions
 
 
-class ExpandedRegion(BaseModel):
-    blank_cells: list[tuple[int, int]]
-    cases: list[int]
-
-    def __init__(self, blank_cells: list[tuple[int, int]], cases: list[int]):
-        super().__init__(blank_cells=blank_cells, cases=cases)
-
-    @property
-    def case_count(self) -> int:
-        return len(self.cases)
-
-    def get_case(self, case_index: int) -> Iterator[tuple[tuple[int, int], bool]]:
-        case = self.cases[case_index]
-        for i, cell in enumerate(self.blank_cells):
-            has_mine = bool(case & (1 << i))
-            yield cell, has_mine
-
-    @classmethod
-    def from_mine_combinations(
-        cls,
-        blank_cells: list[tuple[int, int]],
-        mine_combinations: list[set[tuple[int, int]]],
-    ) -> "ExpandedRegion":
-        cases = []
-        for mine_set in mine_combinations:
-            case = 0
-            for i, cell in enumerate(blank_cells):
-                if cell in mine_set:
-                    case |= 1 << i
-            cases.append(case)
-        return cls(blank_cells=blank_cells, cases=cases)
-
-
 def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
     expanded_regions = []
     for region in regions:
@@ -465,7 +410,7 @@ def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
         expanded_region = ExpandedRegion.from_mine_combinations(
             blank_cells, valid_mine_combinations
         )
-        expanded_regions.append(expanded_region)            
+        expanded_regions.append(expanded_region)
 
     return expanded_regions
 

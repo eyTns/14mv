@@ -5,7 +5,6 @@ from PyQt5.QtWidgets import QApplication
 from window import window
 
 
-
 def main():
     conf = {
         "window_title": "Minesweeper Variants",
