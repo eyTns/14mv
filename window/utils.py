@@ -307,21 +307,21 @@ def find_triple_inclusions(regions_info: list[Region]):
     hints = set()
 
     for r1, r2, r3 in combinations(regions_info, 3):
-        if not r1.blank_cells & r2.blank_cells:
+        if not (r1.blank_cells & r2.blank_cells):
             r12 = Region(
                 mines_needed=r1.mines_needed + r2.mines_needed,
                 blank_cells=r1.blank_cells | r2.blank_cells,
             )
             hints.update(deduce_double_inequalities(r12, r3))
             hints.update(deduce_double_inequalities(r3, r12))
-        if not r2.blank_cells & r3.blank_cells:
+        if not (r2.blank_cells & r3.blank_cells):
             r23 = Region(
                 mines_needed=r2.mines_needed + r3.mines_needed,
                 blank_cells=r2.blank_cells | r3.blank_cells,
             )
             hints.update(deduce_double_inequalities(r23, r1))
             hints.update(deduce_double_inequalities(r1, r23))
-        if not r3.blank_cells & r1.blank_cells:
+        if not (r3.blank_cells & r1.blank_cells):
             r31 = Region(
                 mines_needed=r3.mines_needed + r1.mines_needed,
                 blank_cells=r3.blank_cells | r1.blank_cells,
