@@ -34,6 +34,28 @@ NEIGHBORS = {
     "UW": [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)],
 }
 
+
+RULE_Q = {
+    "directions": [[(0, 0), (0, 1), (1, 0), (1, 1)]],
+    "pattern_condition": "no_all_numbers",
+}
+
+RULE_T = {
+    "directions": [
+        [(0, 0), (0, 1), (0, 2)],
+        [(0, 0), (1, 0), (2, 0)],
+        [(0, 0), (1, 1), (2, 2)],
+        [(0, 0), (1, -1), (2, -2)],
+    ],
+    "pattern_condition": "no_all_mines",
+}
+
+RULE_U = {
+    "directions": [[(0, 0), (0, 1)], [(0, 0), (1, 0)]],
+    "pattern_condition": "no_all_mines",
+}
+
+
 INITIAL_POSITIONS = {
     5: (395, 234),
     6: (370, 209),

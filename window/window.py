@@ -25,20 +25,26 @@ from window.utils import (
     diff_regions,
     expand_regions,
     find_double_areas,
-    find_flag_adjacent_cells,
     find_quadruple_inequalities,
-    find_remaining_cells_from_quad,
-    find_single_cell_from_triplet,
     find_single_clickable_cells,
     find_triple_inclusions,
     find_triple_inequalities,
     find_two_pairs_inequalities,
-    get_quad_expanded_regions,
-    get_triplet_expanded_regions,
     next_level_check,
     skip_level,
     solve_with_expanded_regions,
+    ExpandedRegion,
 )
+from window.rules import (
+    find_flag_adjacent_cells,
+    find_remaining_cells_from_quad,
+    find_single_cell_from_triplet,
+    # get_quad_expanded_regions,
+    # get_triplet_expanded_regions,
+    # get_single_expanded_regions,
+    get_expanded_regions_by_rule,
+)
+from window.const import RULE_Q, RULE_T, RULE_U
 
 
 class HeaderFrame(QFrame):
@@ -132,13 +138,14 @@ class MyWindow(QMainWindow):
         self.update_config_values()
         self.window_title = conf["window_title"]
         self.rule = conf["rule"].upper()
+        self.iterate_forever = conf["iterate_forever"]
         self.cell_size = detect_cell_size(self.window_title)
 
-        # # iterate forever
-        # while True:
-        #     self.process_game_data()
-        #     print("skipping level")
-        #     skip_level(self.window_title)
+        if self.iterate_forever:
+            while True:
+                self.process_game_data()
+                print("skipping level")
+                skip_level(self.window_title)
 
         self.process_game_data()
 
@@ -182,12 +189,12 @@ class MyWindow(QMainWindow):
             while True:
                 regions = analyze_regions(grid, self.rule)
                 hints.update(find_single_clickable_cells(regions))
-                if self.rule == "UW":
-                    hints.update(find_flag_adjacent_cells(grid))
-                if "Q" in self.rule:
-                    hints.update(find_remaining_cells_from_quad(grid))
-                if "T" in self.rule:
-                    hints.update(find_single_cell_from_triplet(grid))
+                # if self.rule == "UW":
+                #     hints.update(find_flag_adjacent_cells(grid))
+                # if "Q" in self.rule:
+                #     hints.update(find_remaining_cells_from_quad(grid))
+                # if "T" in self.rule:
+                #     hints.update(find_single_cell_from_triplet(grid))
                 hints.update(find_double_areas(regions))
                 hints.update(find_triple_inclusions(regions))
                 hints.update(find_triple_inequalities(regions))
@@ -209,9 +216,17 @@ class MyWindow(QMainWindow):
             regions = analyze_regions(grid, self.rule)
             eregions = expand_regions(regions, grid, self.rule)
             if "Q" in self.rule:
-                eregions.extend(get_quad_expanded_regions(grid))
+                tuples = get_expanded_regions_by_rule(grid, RULE_Q)
+                for bc, cases in tuples:
+                    eregions.append(ExpandedRegion(blank_cells=bc, cases=cases))
             if "T" in self.rule:
-                eregions.extend(get_triplet_expanded_regions(grid))
+                tuples = get_expanded_regions_by_rule(grid, RULE_T)
+                for bc, cases in tuples:
+                    eregions.append(ExpandedRegion(blank_cells=bc, cases=cases))
+            if "U" in self.rule:
+                tuples = get_expanded_regions_by_rule(grid, RULE_U)
+                for bc, cases in tuples:
+                    eregions.append(ExpandedRegion(blank_cells=bc, cases=cases))
             hints = solve_with_expanded_regions(eregions)
             if hints:
                 print(f"{len(hints)} hints found")

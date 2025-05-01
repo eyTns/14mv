@@ -4,13 +4,13 @@ from PyQt5.QtWidgets import QApplication
 
 from window import window
 
-# from window.utils import ExpandedRegion
 
 
 def main():
     conf = {
         "window_title": "Minesweeper Variants",
-        "rule": "X",
+        "rule": "QT",
+        "iterate_forever": True,
     }
     app = QApplication(sys.argv)
     main_window = window.MyWindow(conf)

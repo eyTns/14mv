@@ -6,7 +6,7 @@ import pygetwindow as gw
 from pydantic import BaseModel
 from typing import Iterator
 from math import comb
-
+from window.rules import filter_cases_by_rule, is_valid_case_for_rule
 
 from window.const import (
     CLICK_COORDINATES,
@@ -14,7 +14,7 @@ from window.const import (
     TOTAL_MINES,
     INITIAL_POSITIONS,
     INITIAL_POSITIONS_2,
-    SPECIAL_CELLS,
+    SPECIAL_CELLS, RULE_Q, RULE_T, RULE_U
 )
 from window.image_utils import (
     PuzzleStatus,
@@ -173,7 +173,6 @@ def analyze_regions(grid, rule, grid_region=True) -> list[Region]:
 
     if "B" in rule:
         for start in range(len(grid)):
-            # single lines
             regions.append(get_row_column_region(grid, rule, (start, start), None))
             regions.append(get_row_column_region(grid, rule, None, (start, start)))
 
@@ -192,88 +191,6 @@ def find_single_clickable_cells(regions_info: list[Region]):
             for blank_r, blank_c in region.blank_cells:
                 hints.add(("mine", (blank_r, blank_c)))
 
-    return hints
-
-
-def find_flag_adjacent_cells(grid):
-    """Rule U: 지뢰에 이웃한 셀은 숫자이다"""
-    height = len(grid)
-    width = len(grid[0])
-    hints = set()
-
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-    for row in range(height):
-        for col in range(width):
-            if grid[row][col] == SPECIAL_CELLS["blank"]:
-                for dx, dy in directions:
-                    new_row, new_col = row + dx, col + dy
-                    if 0 <= new_row < height and 0 <= new_col < width:
-                        if grid[new_row][new_col] == SPECIAL_CELLS["flag"]:
-                            hints.add(("safe", (row, col)))
-                            break
-    return hints
-
-
-def find_remaining_cells_from_quad(grid):
-    """Rule Q: 2*2 중 3개의 셀이 숫자이고 나머지가 빈칸이면 그건 지뢰다"""
-    height = len(grid)
-    width = len(grid[0])
-    hints = set()
-    for row in range(height - 1):
-        for col in range(width - 1):
-            cells = [(row, col), (row, col + 1), (row + 1, col), (row + 1, col + 1)]
-            blank_count = 0
-            blank_pos = None
-            for r, c in cells:
-                if grid[r][c] == SPECIAL_CELLS["blank"]:
-                    blank_count += 1
-                    blank_pos = (r, c)
-                elif grid[r][c] == SPECIAL_CELLS["flag"]:
-                    blank_count = -1
-                    break
-            if blank_count == 1:
-                hints.add(("mine", blank_pos))
-    return hints
-
-
-def find_single_cell_from_triplet(grid):
-    """Rule T: 가로, 세로, 대각선으로 연속한 3개의 셀 중 2개가 지뢰이고 나머지가 빈칸이면 그건 숫자다"""
-    height = len(grid)
-    width = len(grid[0])
-    hints = set()
-    directions = [
-        [(0, 0), (0, 1), (0, 2)],
-        [(0, 0), (1, 0), (2, 0)],
-        [(0, 0), (1, 1), (2, 2)],
-        [(0, 2), (1, 1), (2, 0)],
-    ]
-    for row in range(height):
-        for col in range(width):
-            for direction in directions:
-                cells = []
-                valid = True
-                flag_count = 0
-                blank_pos = None
-                for dr, dc in direction:
-                    new_row = row + dr
-                    new_col = col + dc
-                    if not (0 <= new_row < height and 0 <= new_col < width):
-                        valid = False
-                        break
-
-                    cell_value = grid[new_row][new_col]
-                    cells.append((new_row, new_col, cell_value))
-                    if cell_value == SPECIAL_CELLS["flag"]:
-                        flag_count += 1
-                    elif cell_value == SPECIAL_CELLS["blank"]:
-                        if blank_pos is None:
-                            blank_pos = (new_row, new_col)
-                        else:
-                            valid = False
-                            break
-
-                if valid and flag_count == 2 and blank_pos is not None:
-                    hints.add(("safe", blank_pos))
     return hints
 
 
@@ -517,108 +434,6 @@ class ExpandedRegion(BaseModel):
             cases.append(case)
         return cls(blank_cells=blank_cells, cases=cases)
 
-    def filter_adjacent_mines(self) -> "ExpandedRegion":
-        """Rule U: 이웃한 셀에 동시에 지뢰가 있는 케이스들을 제거"""
-
-        def are_adjacent(cell1: tuple[int, int], cell2: tuple[int, int]) -> bool:
-            return abs(cell1[0] - cell2[0]) + abs(cell1[1] - cell2[1]) == 1
-
-        adjacent_pairs = []
-        for i, cell1 in enumerate(self.blank_cells):
-            for j, cell2 in enumerate(self.blank_cells[i + 1 :], i + 1):
-                if are_adjacent(cell1, cell2):
-                    adjacent_pairs.append((i, j))
-
-        filtered_cases = []
-        for case in self.cases:
-            valid = True
-            for i, j in adjacent_pairs:
-                if (case & (1 << i)) and (case & (1 << j)):
-                    valid = False
-                    break
-            if valid:
-                filtered_cases.append(case)
-
-        return ExpandedRegion(blank_cells=self.blank_cells, cases=filtered_cases)
-
-    def filter_no_mine_quads(self, grid) -> "ExpandedRegion":
-        """Rule Q: 2*2 영역에 지뢰가 없는 케이스들을 제거"""
-        height = len(grid)
-        width = len(grid[0])
-        filtered_cases = []
-
-        for case in self.cases:
-            applied_grid = [row[:] for row in grid]
-            for idx, cell in enumerate(self.blank_cells):
-                row, col = cell
-                if case & (1 << idx):
-                    applied_grid[row][col] = SPECIAL_CELLS["flag"]
-                else:
-                    applied_grid[row][col] = -3
-            has_no_mine_quad = False
-            for row in range(height - 1):
-                for col in range(width - 1):
-                    quad_cells = [
-                        applied_grid[row][col],
-                        applied_grid[row][col + 1],
-                        applied_grid[row + 1][col],
-                        applied_grid[row + 1][col + 1],
-                    ]
-                    if all(cell not in [-1, -2] for cell in quad_cells):
-                        has_no_mine_quad = True
-                        break
-                if has_no_mine_quad:
-                    break
-
-            if not has_no_mine_quad:
-                filtered_cases.append(case)
-
-        return ExpandedRegion(blank_cells=self.blank_cells, cases=filtered_cases)
-
-    def filter_triplet_mines(self, grid) -> "ExpandedRegion":
-        """Rule T: 가로, 세로, 대각선으로 지뢰가 3개 연속한 케이스들을 제거"""
-        height = len(grid)
-        width = len(grid[0])
-        filtered_cases = []
-        directions = [
-            [(0, 0), (0, 1), (0, 2)],
-            [(0, 0), (1, 0), (2, 0)],
-            [(0, 0), (1, 1), (2, 2)],
-            [(0, 0), (1, -1), (2, -2)],
-        ]
-
-        for case in self.cases:
-            applied_grid = [row[:] for row in grid]
-            for idx, cell in enumerate(self.blank_cells):
-                row, col = cell
-                if case & (1 << idx):
-                    applied_grid[row][col] = SPECIAL_CELLS["flag"]
-            has_triplet_mines = False
-            for row in range(height):
-                for col in range(width):
-                    for direction in directions:
-                        triplet_valid = True
-                        triplet_mines = True
-                        for dr, dc in direction:
-                            new_row = row + dr
-                            new_col = col + dc
-                            if not (0 <= new_row < height and 0 <= new_col < width):
-                                triplet_valid = False
-                                break
-                            if applied_grid[new_row][new_col] != SPECIAL_CELLS["flag"]:
-                                triplet_mines = False
-                                break
-                        if triplet_valid and triplet_mines:
-                            has_triplet_mines = True
-                            break
-                    if has_triplet_mines:
-                        break
-                if has_triplet_mines:
-                    break
-            if not has_triplet_mines:
-                filtered_cases.append(case)
-        return ExpandedRegion(blank_cells=self.blank_cells, cases=filtered_cases)
-
 
 def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
     expanded_regions = []
@@ -628,98 +443,31 @@ def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
         MAX_CASES = 100000
         if combinations_count > MAX_CASES:
             continue
-        mine_combinations = list(combinations(blank_cells, region.mines_needed))
+
+        valid_mine_combinations = []
+        for mines in combinations(blank_cells, region.mines_needed):
+            numbers = [cell for cell in blank_cells if cell not in mines]
+            applied_grid = [row[:] for row in grid]
+            for row, col in mines:
+                applied_grid[row][col] = SPECIAL_CELLS["flag"]
+            for row, col in numbers:
+                applied_grid[row][col] = SPECIAL_CELLS["star"]
+            if "Q" in rule:
+                if not is_valid_case_for_rule(applied_grid, RULE_Q):
+                    continue
+            if "T" in rule:
+                if not is_valid_case_for_rule(applied_grid, RULE_T):
+                    continue
+            if "U" in rule:
+                if not is_valid_case_for_rule(applied_grid, RULE_U):
+                    continue
+            valid_mine_combinations.append(mines)
         expanded_region = ExpandedRegion.from_mine_combinations(
-            blank_cells, mine_combinations
+            blank_cells, valid_mine_combinations
         )
-        if rule == "UW":
-            expanded_region = expanded_region.filter_adjacent_mines()
-        if "Q" in rule:
-            expanded_region = expanded_region.filter_no_mine_quads(grid)
-        if "T" in rule:
-            expanded_region = expanded_region.filter_triplet_mines(grid)
-        expanded_regions.append(expanded_region)
+        expanded_regions.append(expanded_region)            
+
     return expanded_regions
-
-
-def get_quad_expanded_regions(grid) -> list[ExpandedRegion]:
-    """Rule Q: 모든 쿼드에는 지뢰가 1개 이상 있다"""
-    height = len(grid)
-    width = len(grid[0])
-    regions = []
-
-    for row in range(height - 1):
-        for col in range(width - 1):
-            quad_cells = [
-                (row, col),
-                (row, col + 1),
-                (row + 1, col),
-                (row + 1, col + 1),
-            ]
-            blank_cells = []
-            has_flag = False
-            for r, c in quad_cells:
-                if grid[r][c] == SPECIAL_CELLS["blank"]:
-                    blank_cells.append((r, c))
-                elif grid[r][c] == SPECIAL_CELLS["flag"]:
-                    has_flag = True
-                    break
-            if has_flag or not blank_cells:
-                continue
-            num_blanks = len(blank_cells)
-            cases = []
-            for i in range(1, 2**num_blanks):
-                cases.append(i)
-            if cases:
-                regions.append(ExpandedRegion(blank_cells=blank_cells, cases=cases))
-
-    return regions
-
-
-def get_triplet_expanded_regions(grid) -> list[ExpandedRegion]:
-    """Rule T: 모든 연속된 3개의 셀에는 숫자가 1개 이상 있다"""
-    height = len(grid)
-    width = len(grid[0])
-    regions = []
-    directions = [
-        [(0, 0), (0, 1), (0, 2)],
-        [(0, 0), (1, 0), (2, 0)],
-        [(0, 0), (1, 1), (2, 2)],
-        [(0, 0), (1, -1), (2, -2)],
-    ]
-
-    for row in range(height):
-        for col in range(width):
-            for direction in directions:
-                triplet_cells = []
-                valid = True
-                for dr, dc in direction:
-                    new_row = row + dr
-                    new_col = col + dc
-                    if not (0 <= new_row < height and 0 <= new_col < width):
-                        valid = False
-                        break
-                    triplet_cells.append((new_row, new_col))
-                if not valid:
-                    continue
-                blank_cells = []
-                has_number = False
-                for r, c in triplet_cells:
-                    if grid[r][c] == SPECIAL_CELLS["blank"]:
-                        blank_cells.append((r, c))
-                    elif grid[r][c] not in [-1, -2]:
-                        has_number = True
-                        break
-                if has_number or not blank_cells:
-                    continue
-                num_blanks = len(blank_cells)
-                cases = []
-                for i in range(2**num_blanks - 1):
-                    cases.append(i)
-                if cases:
-                    regions.append(ExpandedRegion(blank_cells=blank_cells, cases=cases))
-
-    return regions
 
 
 def extract_hints(
