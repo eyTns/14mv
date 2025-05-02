@@ -1,11 +1,9 @@
 import time
 from itertools import combinations
 from math import comb
-from typing import Iterator
 
 import pyautogui
 import pygetwindow as gw
-from pydantic import BaseModel
 
 from window.const import (
     CLICK_COORDINATES,
@@ -15,12 +13,14 @@ from window.const import (
     RULE_Q,
     RULE_T,
     RULE_U,
+    RULE_A,
+    RULE_H,
     SPECIAL_CELLS,
     TOTAL_MINES,
 )
 from window.image_utils import PuzzleStatus, capture_window_screenshot, completed_check
 from window.region import ExpandedRegion, Region
-from window.rules import is_valid_case_for_rule
+from window.rules import is_valid_case_for_rule, filter_cases_by_rule
 
 
 def get_neighboring_cells(row, col, grid):
@@ -385,8 +385,8 @@ def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
     for region in regions:
         blank_cells = list(region.blank_cells)
         combinations_count = comb(len(blank_cells), region.mines_needed)
-        MAX_CASES = 100000
-        if combinations_count > MAX_CASES:
+        MAX_CASES = 20000
+        if combinations_count > MAX_CASES * 10:
             continue
 
         valid_mine_combinations = []
@@ -403,10 +403,19 @@ def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
             if "T" in rule:
                 if not is_valid_case_for_rule(applied_grid, RULE_T):
                     continue
+            if "A" in rule:
+                if not is_valid_case_for_rule(applied_grid, RULE_A):
+                    continue
+            if "H" in rule:
+                if not is_valid_case_for_rule(applied_grid, RULE_H):
+                    continue
             if "U" in rule:
                 if not is_valid_case_for_rule(applied_grid, RULE_U):
                     continue
             valid_mine_combinations.append(mines)
+        if len(valid_mine_combinations) > MAX_CASES:
+            continue
+
         expanded_region = ExpandedRegion.from_mine_combinations(
             blank_cells, valid_mine_combinations
         )
@@ -442,6 +451,9 @@ def extract_hints(
         else:
             uncertain_cells.append(cell)
             uncertain_cell_indices.append(i)
+
+    if not hints:
+        return set(), region
 
     if uncertain_cells:
         new_cases = []
@@ -517,13 +529,23 @@ def merge_expanded_regions(r1: ExpandedRegion, r2: ExpandedRegion) -> ExpandedRe
 
 
 def solve_with_expanded_regions(
-    eregions: list[ExpandedRegion],
+    eregions: list[ExpandedRegion], grid: list[list[int]], rule: str
 ) -> list[tuple[str, tuple[int, int]]]:
     hints = set()
-    MAX_CASES = 25000
+    MAX_CASES = 20000
 
     reduced_regions = []
     for region in eregions:
+        if "Q" in rule:
+            region = filter_cases_by_rule(region, grid, RULE_Q)
+        if "T" in rule:
+            region = filter_cases_by_rule(region, grid, RULE_T)
+        if "A" in rule:
+            region = filter_cases_by_rule(region, grid, RULE_A)
+        if "H" in rule:
+            region = filter_cases_by_rule(region, grid, RULE_H)
+        if "U" in rule:
+            region = filter_cases_by_rule(region, grid, RULE_U)
         new_hints, reduced = extract_hints(region)
         if new_hints:
             hints.update(new_hints)
@@ -535,27 +557,41 @@ def solve_with_expanded_regions(
     start_time = time.time()
 
     while len(eregions) > 1:
-        # print(f"Remaining regions: {len(eregions)}")
+        print(f"{len(eregions)} / ", end="")
         eregions.sort(key=lambda r: len(r.cases))
         r1 = eregions.pop(0)
 
         min_cases = float("inf")
         best_reduced = None
-        # best_hints = set()
         best_partner_idx = None
 
         for i, r2 in enumerate(eregions):
+            if not set(r1.blank_cells) & set(r2.blank_cells):
+                continue
+            if r1.case_count * r2.case_count > MAX_CASES:
+                continue
             merged = merge_expanded_regions(r1, r2)
+            if "Q" in rule:
+                merged = filter_cases_by_rule(merged, grid, RULE_Q)
+            if "T" in rule:
+                merged = filter_cases_by_rule(merged, grid, RULE_T)
+            if "A" in rule:
+                merged = filter_cases_by_rule(merged, grid, RULE_A)
+            if "H" in rule:
+                merged = filter_cases_by_rule(merged, grid, RULE_H)
+            if "U" in rule:
+                merged = filter_cases_by_rule(merged, grid, RULE_U)
             if merged is None:
                 continue
             new_hints, reduced = extract_hints(merged)
             if new_hints:
                 hints.update(new_hints)
+            if time.time() - start_time > 0.5 and hints:
+                return hints
             if reduced and 1 < len(reduced.cases) <= MAX_CASES:
                 if len(reduced.cases) < min_cases:
                     min_cases = len(reduced.cases)
                     best_reduced = reduced
-                    # best_hints = new_hints if new_hints else set()
                     best_partner_idx = i
         if time.time() - start_time > 0.5 and hints:
             return hints
@@ -563,6 +599,7 @@ def solve_with_expanded_regions(
             eregions.pop(best_partner_idx)
             if best_reduced and 1 < len(best_reduced.cases) <= MAX_CASES:
                 eregions.append(best_reduced)
+        print(f"{len(r1.cases)} -> {min_cases}")
     if eregions:
         final_hints, _ = extract_hints(eregions[0])
         hints.update(final_hints)
@@ -673,6 +710,22 @@ def click_hints(window_title, hints, size):
     return click_positions(window_title, clicks)
 
 
+def click_hints_twice(window_title, hints, size):
+    left_clicks = []
+    right_clicks = []
+    for hint in hints:
+        location = hint[1]
+        relative_x, relative_y = location_to_cell_coordinates(
+            window_title, location, size
+        )
+        if hint[0] == "safe":
+            left_clicks.append((relative_x, relative_y, "left"))
+        else:
+            right_clicks.append((relative_x, relative_y, "right"))
+    clicks = left_clicks + right_clicks + left_clicks
+    return click_positions(window_title, clicks)
+
+
 def input_spacebar(window_title):
     target_window = gw.getWindowsWithTitle(window_title)[0]
     target_window.activate()
@@ -685,6 +738,7 @@ def next_level_check(window_title, save_path):
     if status == PuzzleStatus.FINISH:
         input_spacebar(window_title)
         click_positions(window_title, [CLICK_COORDINATES["next_level"]])
+        time.sleep(0.05)
     elif status == PuzzleStatus.NEXT:
         click_positions(window_title, [CLICK_COORDINATES["next_level"]])
 

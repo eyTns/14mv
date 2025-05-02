@@ -56,7 +56,6 @@ def filter_cases_by_rule(
     grid: list[list[int]],
     rule: dict,
 ) -> ExpandedRegion:
-    """주어진 룰에 따라 케이스들을 필터링"""
     blank_cells = expanded_region.blank_cells
     cases = expanded_region.cases
     filtered_cases = []

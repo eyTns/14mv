@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from window.const import RULE_Q, RULE_T, RULE_U
+from window.const import RULE_Q, RULE_T, RULE_A, RULE_H, RULE_U
 from window.image_utils import (
     capture_window_screenshot,
     convert_to_numeric,
@@ -30,6 +30,7 @@ from window.utils import (
     analyze_regions,
     apply_hints,
     click_hints,
+    click_hints_twice,
     diff_regions,
     expand_regions,
     find_double_areas,
@@ -188,8 +189,8 @@ class MyWindow(QMainWindow):
                 hints.update(find_single_clickable_cells(regions))
                 # if self.rule == "UW":
                 #     hints.update(find_flag_adjacent_cells(grid))
-                # if "Q" in self.rule:
-                #     hints.update(find_remaining_cells_from_quad(grid))
+                if "Q" in self.rule:
+                    hints.update(find_remaining_cells_from_quad(grid))
                 # if "T" in self.rule:
                 #     hints.update(find_single_cell_from_triplet(grid))
                 hints.update(find_double_areas(regions))
@@ -203,7 +204,8 @@ class MyWindow(QMainWindow):
                     continue
                 break
             if hints:
-                click_hints(self.window_title, hints, self.cell_size)
+                # click_hints(self.window_title, hints, self.cell_size)
+                click_hints_twice(self.window_title, hints, self.cell_size)
                 next_level_check(self.window_title, save_path)
                 continue
 
@@ -218,13 +220,20 @@ class MyWindow(QMainWindow):
             if "T" in self.rule:
                 eregions_rule = get_expanded_regions_by_rule(grid, RULE_T)
                 eregions.extend(eregions_rule)
+            if "A" in self.rule:
+                eregions_rule = get_expanded_regions_by_rule(grid, RULE_A)
+                eregions.extend(eregions_rule)
+            if "H" in self.rule:
+                eregions_rule = get_expanded_regions_by_rule(grid, RULE_H)
+                eregions.extend(eregions_rule)
             if "U" in self.rule:
                 eregions_rule = get_expanded_regions_by_rule(grid, RULE_U)
                 eregions.extend(eregions_rule)
-            hints = solve_with_expanded_regions(eregions)
+            hints = solve_with_expanded_regions(eregions, grid, self.rule)
             if hints:
                 print(f"{len(hints)} hints found")
-                click_hints(self.window_title, hints, self.cell_size)
+                # click_hints(self.window_title, hints, self.cell_size)
+                click_hints_twice(self.window_title, hints, self.cell_size)
                 next_level_check(self.window_title, save_path)
                 continue
 
@@ -249,7 +258,8 @@ class MyWindow(QMainWindow):
                 )
             if hints:
                 print(f"{len(hints)} hints found")
-                click_hints(self.window_title, hints, self.cell_size)
+                # click_hints(self.window_title, hints, self.cell_size)
+                click_hints_twice(self.window_title, hints, self.cell_size)
                 next_level_check(self.window_title, save_path)
                 continue
 
