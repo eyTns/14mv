@@ -21,7 +21,7 @@ from window.const import (
     MAX_MERGE_CASES,
 )
 from window.image_utils import PuzzleStatus, capture_window_screenshot, completed_check
-from window.region import ExpandedRegion, Region, WRegion
+from window.region import ExpandedRegion, Region, WRegion, LRegion
 from window.rules import is_valid_case_for_rule, filter_cases_by_rule
 
 
@@ -203,6 +203,50 @@ def analyze_wregions(grid, rule) -> list[WRegion]:
                     wregions.append(wregion)
 
     return wregions
+
+
+def analyze_lregions(grid, rule) -> list[LRegion]:
+    lregions = []
+    rows, cols = len(grid), len(grid[0])
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r][c] >= 0:
+                center = (r, c)
+                number = grid[r][c]
+                pre_filled_mines = []
+                pre_filled_numbers = []
+                has_blank = False
+                for dr in [-1, 0, 1]:
+                    for dc in [-1, 0, 1]:
+                        if dr == 0 and dc == 0:
+                            continue
+                        nr, nc = r + dr, c + dc
+                        if not (0 <= nr < rows) or not (0 <= nc < cols):
+                            pre_filled_numbers.append((nr, nc))
+                            continue
+                        cell_value = grid[nr][nc]
+                        if cell_value == SPECIAL_CELLS["flag"]:
+                            pre_filled_mines.append((nr, nc))
+                        elif (
+                            cell_value >= 0
+                            or cell_value == SPECIAL_CELLS["question"]
+                            or cell_value == SPECIAL_CELLS["star"]
+                        ):
+                            pre_filled_numbers.append((nr, nc))
+                        elif cell_value == SPECIAL_CELLS["blank"]:
+                            has_blank = True
+                if has_blank:
+                    lregion = LRegion(
+                        center=center,
+                        number=number,
+                        pre_filled_mines=pre_filled_mines,
+                        pre_filled_numbers=pre_filled_numbers,
+                    )
+                    lregions.append(lregion)
+    return lregions
+
+
+
 
 
 def find_single_clickable_cells(regions_info: list[Region]):
@@ -567,12 +611,12 @@ def merge_expanded_regions(r1: ExpandedRegion, r2: ExpandedRegion) -> ExpandedRe
 
 
 def solve_with_expanded_regions(
-    eregions: list[ExpandedRegion], grid: list[list[int]], rule: str
+    exregions: list[ExpandedRegion], grid: list[list[int]], rule: str
 ) -> list[tuple[str, tuple[int, int]]]:
     hints = set()
 
     reduced_regions = []
-    for region in eregions:
+    for region in exregions:
         if "Q" in rule:
             region = filter_cases_by_rule(region, grid, RULE_Q)
         if "T" in rule:
@@ -589,22 +633,22 @@ def solve_with_expanded_regions(
         if reduced:
             reduced_regions.append(reduced)
 
-    eregions = reduced_regions
+    exregions = reduced_regions
 
     start_time = time.time()
 
-    while len(eregions) > 1:
-        print(f"{len(eregions)}", end=" / ")
-        # print(f"{len(eregions)} / ")
+    while len(exregions) > 1:
+        print(f"{len(exregions)}", end=" / ")
+        # print(f"{len(exregions)} / ")
 
-        eregions.sort(key=lambda r: len(r.cases))
-        r1 = eregions.pop(0)
+        exregions.sort(key=lambda r: len(r.cases))
+        r1 = exregions.pop(0)
         # print(r1, end=" / ")
 
         # 부분집합 관계인 영역들 처리
         subset_region = 0
-        for i in range(len(eregions)):
-            r2 = eregions[i]
+        for i in range(len(exregions)):
+            r2 = exregions[i]
             if set(r1.blank_cells).issubset(set(r2.blank_cells)):
                 merged = merge_expanded_regions(r1, r2)
                 if merged is None:
@@ -626,7 +670,7 @@ def solve_with_expanded_regions(
                     hints.update(new_hints)
                 if reduced:
                     subset_region += 1
-                    eregions[i] = reduced
+                    exregions[i] = reduced
 
         if subset_region >= 2:
             # 전체가 아닌 영역끼리 합친 경우
@@ -638,8 +682,8 @@ def solve_with_expanded_regions(
         best_partner_idx = None
 
         # 영역 병합
-        for i in range(len(eregions)):
-            r2 = eregions[i]
+        for i in range(len(exregions)):
+            r2 = exregions[i]
             if not set(r1.blank_cells) & set(r2.blank_cells):
                 continue
             if r1.case_count * r2.case_count > MAX_EXPAND_CASES:
@@ -670,13 +714,13 @@ def solve_with_expanded_regions(
         if time.time() - start_time > 0.5 and hints:
             return hints
         if best_partner_idx is not None:
-            eregions.pop(best_partner_idx)
+            exregions.pop(best_partner_idx)
             if best_reduced and 1 < len(best_reduced.cases) <= MAX_MERGE_CASES:
-                eregions.append(best_reduced)
+                exregions.append(best_reduced)
         print(f"{len(r1.cases)} -> {min_cases}")
 
-    if eregions:
-        final_hints, _ = extract_hints(eregions[0])
+    if exregions:
+        final_hints, _ = extract_hints(exregions[0])
         hints.update(final_hints)
 
     return hints

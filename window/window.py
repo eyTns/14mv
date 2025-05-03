@@ -43,6 +43,7 @@ from window.utils import (
     skip_level,
     solve_with_expanded_regions,
     analyze_wregions,
+    analyze_lregions,
     get_grid_region,
 )
 
@@ -179,7 +180,7 @@ class MyWindow(QMainWindow):
         activate_window(self.window_title)
 
         while True:
-            if "W" in self.rule and not "W'" in self.rule:
+            if ("W" in self.rule and not "W'" in self.rule) or "L" in self.rule:
                 capture_window_screenshot(self.window_title)
                 best_fit_cells = find_best_fit_cells(
                     self.window_title, self.cell_size, self.rule
@@ -195,29 +196,34 @@ class MyWindow(QMainWindow):
 
                 # 영역 경우의 수 확장
                 print("searching expanded regions...")
-                wregions = analyze_wregions(grid, self.rule)
-                eregions = [
-                    ExpandedRegion.from_wregion(wregion) for wregion in wregions
-                ]
+                exregions = []
+                if "W" in self.rule and not "W'" in self.rule:
+                    wregions = analyze_wregions(grid, self.rule)
+                    for wregion in wregions:
+                        exregions.append(ExpandedRegion.from_wregion(wregion))
+                if "L" in self.rule:
+                    lregions = analyze_lregions(grid, self.rule)
+                    for lregion in lregions:
+                        exregions.append(ExpandedRegion.from_lregion(lregion))
                 regions = [get_grid_region(grid, self.rule)]
-                eregions.extend(expand_regions(regions, grid, self.rule))
+                exregions.extend(expand_regions(regions, grid, self.rule))
 
                 # if "Q" in self.rule:
-                #     eregions_rule = get_expanded_regions_by_rule(grid, RULE_Q)
-                #     eregions.extend(eregions_rule)
+                #     exregions_rule = get_expanded_regions_by_rule(grid, RULE_Q)
+                #     exregions.extend(exregions_rule)
                 # if "T" in self.rule:
-                #     eregions_rule = get_expanded_regions_by_rule(grid, RULE_T)
-                #     eregions.extend(eregions_rule)
+                #     exregions_rule = get_expanded_regions_by_rule(grid, RULE_T)
+                #     exregions.extend(exregions_rule)
                 # if "A" in self.rule:
-                #     eregions_rule = get_expanded_regions_by_rule(grid, RULE_A)
-                #     eregions.extend(eregions_rule)
+                #     exregions_rule = get_expanded_regions_by_rule(grid, RULE_A)
+                #     exregions.extend(exregions_rule)
                 # if "H" in self.rule:
-                #     eregions_rule = get_expanded_regions_by_rule(grid, RULE_H)
-                #     eregions.extend(eregions_rule)
+                #     exregions_rule = get_expanded_regions_by_rule(grid, RULE_H)
+                #     exregions.extend(exregions_rule)
                 # if "U" in self.rule:
-                #     eregions_rule = get_expanded_regions_by_rule(grid, RULE_U)
-                #     eregions.extend(eregions_rule)
-                hints = solve_with_expanded_regions(eregions, grid, self.rule)
+                #     exregions_rule = get_expanded_regions_by_rule(grid, RULE_U)
+                #     exregions.extend(exregions_rule)
+                hints = solve_with_expanded_regions(exregions, grid, self.rule)
                 if hints:
                     print(f"{len(hints)} hints found")
                     # click_hints(self.window_title, hints, self.cell_size)
@@ -264,23 +270,23 @@ class MyWindow(QMainWindow):
                 print("searching expanded regions...")
                 # regions = analyze_regions(grid, self.rule, False)
                 regions = analyze_regions(grid, self.rule)
-                eregions = expand_regions(regions, grid, self.rule)
+                exregions = expand_regions(regions, grid, self.rule)
                 if "Q" in self.rule:
-                    eregions_rule = get_expanded_regions_by_rule(grid, RULE_Q)
-                    eregions.extend(eregions_rule)
+                    exregions_rule = get_expanded_regions_by_rule(grid, RULE_Q)
+                    exregions.extend(exregions_rule)
                 if "T" in self.rule:
-                    eregions_rule = get_expanded_regions_by_rule(grid, RULE_T)
-                    eregions.extend(eregions_rule)
+                    exregions_rule = get_expanded_regions_by_rule(grid, RULE_T)
+                    exregions.extend(exregions_rule)
                 if "A" in self.rule:
-                    eregions_rule = get_expanded_regions_by_rule(grid, RULE_A)
-                    eregions.extend(eregions_rule)
+                    exregions_rule = get_expanded_regions_by_rule(grid, RULE_A)
+                    exregions.extend(exregions_rule)
                 if "H" in self.rule:
-                    eregions_rule = get_expanded_regions_by_rule(grid, RULE_H)
-                    eregions.extend(eregions_rule)
+                    exregions_rule = get_expanded_regions_by_rule(grid, RULE_H)
+                    exregions.extend(exregions_rule)
                 if "U" in self.rule:
-                    eregions_rule = get_expanded_regions_by_rule(grid, RULE_U)
-                    eregions.extend(eregions_rule)
-                hints = solve_with_expanded_regions(eregions, grid, self.rule)
+                    exregions_rule = get_expanded_regions_by_rule(grid, RULE_U)
+                    exregions.extend(exregions_rule)
+                hints = solve_with_expanded_regions(exregions, grid, self.rule)
                 if hints:
                     print(f"{len(hints)} hints found")
                     # click_hints(self.window_title, hints, self.cell_size)

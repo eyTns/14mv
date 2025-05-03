@@ -1,8 +1,12 @@
 ## not fixed
 
 ## easy puzzles, fast
-MAX_EXPAND_CASES = 1000
-MAX_MERGE_CASES = 1000
+# MAX_EXPAND_CASES = 1000
+# MAX_MERGE_CASES = 1000
+
+## medium puzzles
+MAX_EXPAND_CASES = 10000
+MAX_MERGE_CASES = 10000
 
 ## works on most of size 5 puzzles
 # MAX_EXPAND_CASES = 90000
@@ -22,6 +26,7 @@ TOTAL_MINES = {
     "A": [8, 10, 14, 20],
     "H": [8, 10, 14, 20],
     ## right side
+    "L": [10, 14, 20, 26],
     "W": [10, 14, 20, 26],
     "X": [10, 14, 20, 26],
     "X'": [10, 14, 20, 26],
@@ -49,6 +54,7 @@ NEIGHBORS = {
     "A": [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)],
     "H": [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)],
     ## right side
+    "L": [],
     "W": [],
     "X": [(-2, 0), (-1, 0), (1, 0), (2, 0), (0, -2), (0, -1), (0, 1), (0, 2)],
     "X'": [(-1, 0), (1, 0), (0, -1), (0, 1)],

@@ -33,6 +33,13 @@ class WRegion(BaseModel):
     pre_filled_numbers: list[tuple[int, int]]
 
 
+class LRegion(BaseModel):
+    center: tuple[int, int]
+    number: int
+    pre_filled_mines: list[tuple[int, int]]
+    pre_filled_numbers: list[tuple[int, int]]
+
+
 class ExpandedRegion(BaseModel):
     blank_cells: list[tuple[int, int]]
     cases: list[int]
@@ -101,6 +108,33 @@ class ExpandedRegion(BaseModel):
             if get_mines_component(surrounding_cells, current_mines) == sorted(
                 wregion.mines_component
             ):
+                valid_cases.append(case_bits)
+
+        return cls(blank_cells=blank_cells, cases=valid_cases)
+
+    @classmethod
+    def from_lregion(cls, lregion: LRegion) -> "ExpandedRegion":
+        center_x, center_y = lregion.center
+        surrounding_cells = []
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue
+                surrounding_cells.append((center_x + dx, center_y + dy))
+        blank_cells = [
+            cell
+            for cell in surrounding_cells
+            if cell not in lregion.pre_filled_mines
+            and cell not in lregion.pre_filled_numbers
+        ]
+        blank_cells.sort()
+        valid_cases = []
+        for case_bits in range(1 << len(blank_cells)):
+            mine_count = len(lregion.pre_filled_mines)
+            for i, cell in enumerate(blank_cells):
+                if case_bits & (1 << i):
+                    mine_count += 1
+            if lregion.number in [mine_count + 1, mine_count - 1]:
                 valid_cases.append(case_bits)
 
         return cls(blank_cells=blank_cells, cases=valid_cases)

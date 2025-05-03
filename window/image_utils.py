@@ -171,7 +171,9 @@ def find_best_fit_cells(window_title, cell_size, rule):
                 )
                 imwrite(captured_cell_filename, captured_cell)
                 current_directory = os.path.dirname(os.path.abspath(__file__))
-                templates_directory = os.path.join(current_directory, "..", "images", window_title, "W")
+                templates_directory = os.path.join(
+                    current_directory, "..", "images", window_title, "W"
+                )
                 best_template_filename, min_mse = find_best_template_filename(
                     window_title, captured_cell_filename, templates_directory
                 )
@@ -179,7 +181,7 @@ def find_best_fit_cells(window_title, cell_size, rule):
             best_fit_filenames.append(row_best_fit)
         return best_fit_filenames
 
-    else:
+    else:  # include cases of L
         best_fit_filenames = []
         for row in cell_coordinates:
             row_best_fit = []
@@ -192,7 +194,9 @@ def find_best_fit_cells(window_title, cell_size, rule):
                 )
                 imwrite(captured_cell_filename, captured_cell)
                 current_directory = os.path.dirname(os.path.abspath(__file__))
-                templates_directory = os.path.join(current_directory, "..", "images", window_title)
+                templates_directory = os.path.join(
+                    current_directory, "..", "images", window_title, "V"
+                )
                 best_template_filename, min_mse = find_best_template_filename(
                     window_title, captured_cell_filename, templates_directory
                 )
