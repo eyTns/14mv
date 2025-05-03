@@ -4,7 +4,7 @@
 # MAX_EXPAND_CASES = 1000
 # MAX_MERGE_CASES = 1000
 
-## medium puzzles
+## easy puzzles, fast
 MAX_EXPAND_CASES = 10000
 MAX_MERGE_CASES = 10000
 
@@ -29,6 +29,7 @@ TOTAL_MINES = {
     "L": [10, 14, 20, 26],
     "W": [10, 14, 20, 26],
     "X": [10, 14, 20, 26],
+    "P": [10, 14, 20, 26],
     "X'": [10, 14, 20, 26],
     "K": [10, 14, 20, 26],
     ## combination

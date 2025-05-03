@@ -21,7 +21,7 @@ from window.const import (
     MAX_MERGE_CASES,
 )
 from window.image_utils import PuzzleStatus, capture_window_screenshot, completed_check
-from window.region import ExpandedRegion, Region, WRegion, LRegion
+from window.region import ExpandedRegion, Region, WRegion, LRegion, PRegion
 from window.rules import is_valid_case_for_rule, filter_cases_by_rule
 
 
@@ -246,7 +246,8 @@ def analyze_lregions(grid, rule) -> list[LRegion]:
     return lregions
 
 
-
+def analyze_pregions(grid, rule) -> list[PRegion]:
+    return analyze_lregions(grid, rule)
 
 
 def find_single_clickable_cells(regions_info: list[Region]):

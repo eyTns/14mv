@@ -40,6 +40,9 @@ class LRegion(BaseModel):
     pre_filled_numbers: list[tuple[int, int]]
 
 
+PRegion = LRegion
+
+
 class ExpandedRegion(BaseModel):
     blank_cells: list[tuple[int, int]]
     cases: list[int]
@@ -135,6 +138,37 @@ class ExpandedRegion(BaseModel):
                 if case_bits & (1 << i):
                     mine_count += 1
             if lregion.number in [mine_count + 1, mine_count - 1]:
+                valid_cases.append(case_bits)
+
+        return cls(blank_cells=blank_cells, cases=valid_cases)
+
+    @classmethod
+    def from_pregion(cls, pregion: PRegion) -> "ExpandedRegion":
+        center_x, center_y = pregion.center
+        surrounding_cells = []
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue
+                surrounding_cells.append((center_x + dx, center_y + dy))
+        blank_cells = [
+            cell
+            for cell in surrounding_cells
+            if cell not in pregion.pre_filled_mines
+            and cell not in pregion.pre_filled_numbers
+        ]
+        blank_cells.sort()
+
+        valid_cases = []
+        for case_bits in range(1 << len(blank_cells)):
+            current_mines = set(pregion.pre_filled_mines)
+            for i, cell in enumerate(blank_cells):
+                if case_bits & (1 << i):
+                    current_mines.add(cell)
+            if (
+                len(get_mines_component(surrounding_cells, current_mines))
+                == pregion.number
+            ):
                 valid_cases.append(case_bits)
 
         return cls(blank_cells=blank_cells, cases=valid_cases)

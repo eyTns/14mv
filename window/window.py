@@ -44,6 +44,7 @@ from window.utils import (
     solve_with_expanded_regions,
     analyze_wregions,
     analyze_lregions,
+    analyze_pregions,
     get_grid_region,
 )
 
@@ -180,7 +181,11 @@ class MyWindow(QMainWindow):
         activate_window(self.window_title)
 
         while True:
-            if ("W" in self.rule and not "W'" in self.rule) or "L" in self.rule:
+            if (
+                ("W" in self.rule and not "W'" in self.rule)
+                or ("L" in self.rule)
+                or ("P" in self.rule)
+            ):
                 capture_window_screenshot(self.window_title)
                 best_fit_cells = find_best_fit_cells(
                     self.window_title, self.cell_size, self.rule
@@ -205,6 +210,10 @@ class MyWindow(QMainWindow):
                     lregions = analyze_lregions(grid, self.rule)
                     for lregion in lregions:
                         exregions.append(ExpandedRegion.from_lregion(lregion))
+                if "P" in self.rule:
+                    pregions = analyze_pregions(grid, self.rule)
+                    for pregion in pregions:
+                        exregions.append(ExpandedRegion.from_pregion(pregion))
                 regions = [get_grid_region(grid, self.rule)]
                 exregions.extend(expand_regions(regions, grid, self.rule))
 
@@ -321,6 +330,8 @@ class MyWindow(QMainWindow):
                     click_hints_twice(self.window_title, hints, self.cell_size)
                     next_level_check(self.window_title, save_path)
                     continue
+                else:
+                    print("hint not found")
 
             break
 

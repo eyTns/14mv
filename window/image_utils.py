@@ -181,7 +181,7 @@ def find_best_fit_cells(window_title, cell_size, rule):
             best_fit_filenames.append(row_best_fit)
         return best_fit_filenames
 
-    else:  # include cases of L
+    else:  # include cases of L, P
         best_fit_filenames = []
         for row in cell_coordinates:
             row_best_fit = []
