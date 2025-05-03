@@ -21,7 +21,7 @@ from window.const import (
     MAX_MERGE_CASES,
 )
 from window.image_utils import PuzzleStatus, capture_window_screenshot, completed_check
-from window.region import ExpandedRegion, Region
+from window.region import ExpandedRegion, Region, WRegion
 from window.rules import is_valid_case_for_rule, filter_cases_by_rule
 
 
@@ -157,6 +157,52 @@ def analyze_regions(grid, rule, grid_region=True) -> list[Region]:
             regions.append(get_row_column_region(grid, rule, None, (start, start)))
 
     return [r for r in regions if r]
+
+
+def analyze_wregions(grid, rule) -> list[WRegion]:
+    wregions = []
+    rows, cols = len(grid), len(grid[0])
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r][c] >= 0:
+                center = (r, c)
+                if grid[r][c] == 0:
+                    mines_component = []
+                else:
+                    mines_component = [int(digit) for digit in str(grid[r][c])]
+                pre_filled_mines = []
+                pre_filled_numbers = []
+                has_blank = False
+
+                for dr in [-1, 0, 1]:
+                    for dc in [-1, 0, 1]:
+                        if dr == 0 and dc == 0:
+                            continue
+                        nr, nc = r + dr, c + dc
+                        if not (0 <= nr < rows) or not (0 <= nc < cols):
+                            pre_filled_numbers.append((nr, nc))
+                            continue
+                        cell_value = grid[nr][nc]
+                        if cell_value == SPECIAL_CELLS["flag"]:
+                            pre_filled_mines.append((nr, nc))
+                        elif (
+                            cell_value >= 0
+                            or cell_value == SPECIAL_CELLS["question"]
+                            or cell_value == SPECIAL_CELLS["star"]
+                        ):
+                            pre_filled_numbers.append((nr, nc))
+                        elif cell_value == SPECIAL_CELLS["blank"]:
+                            has_blank = True
+                if has_blank:
+                    wregion = WRegion(
+                        center=center,
+                        mines_component=mines_component,
+                        pre_filled_mines=pre_filled_mines,
+                        pre_filled_numbers=pre_filled_numbers,
+                    )
+                    wregions.append(wregion)
+
+    return wregions
 
 
 def find_single_clickable_cells(regions_info: list[Region]):

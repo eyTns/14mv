@@ -8,8 +8,8 @@ from window import window
 def main():
     conf = {
         "window_title": "Minesweeper Variants",
-        "rule": "QT",
-        "iterate_forever": True,
+        "rule": "W",
+        "iterate_forever": False,
     }
     app = QApplication(sys.argv)
     main_window = window.MyWindow(conf)

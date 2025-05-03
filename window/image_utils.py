@@ -132,9 +132,7 @@ def MSE_of_images(image_path_1, image_path_2):
     return mse
 
 
-def find_best_template_filename(window_title, captured_cell_path):
-    current_directory = os.path.dirname(os.path.abspath(__file__))
-    templates_directory = os.path.join(current_directory, "..", "images", window_title)
+def find_best_template_filename(window_title, captured_cell_path, templates_directory):
     best_template_filename = None
     min_mse = float("inf")
     for template_filename in os.listdir(templates_directory):
@@ -155,30 +153,55 @@ def find_best_template_filename(window_title, captured_cell_path):
         return None, None
 
 
-def find_best_fit_cells(window_title, cell_size):
+def find_best_fit_cells(window_title, cell_size, rule):
     screenshot_path = f"{window_title}.png"
     cell_coordinates = get_cropped_cell_coordinates(window_title, cell_size)
     screenshot = imread(screenshot_path)
-    best_fit_filenames = []
-    for row in cell_coordinates:
-        row_best_fit = []
-        for coordinates in row:
-            x1, y1, x2, y2 = coordinates
-            captured_cell = screenshot[y1:y2, x1:x2]
-            temp_dir = "C:/dev/14mv/temp"  # should not have korean
-            captured_cell_filename = os.path.join(
-                temp_dir, f"captured_cell_{coordinates[0]}_{coordinates[1]}.png"
-            )
-            imwrite(captured_cell_filename, captured_cell)
-            best_template_filename, min_mse = find_best_template_filename(
-                window_title, captured_cell_filename
-            )
-            row_best_fit.append(best_template_filename)
-        best_fit_filenames.append(row_best_fit)
-    return best_fit_filenames
+
+    if "W" in rule and not "W'" in rule:
+        best_fit_filenames = []
+        for row in cell_coordinates:
+            row_best_fit = []
+            for coordinates in row:
+                x1, y1, x2, y2 = coordinates
+                captured_cell = screenshot[y1:y2, x1:x2]
+                temp_dir = "C:/dev/14mv/temp"  # should not have korean
+                captured_cell_filename = os.path.join(
+                    temp_dir, f"captured_cell_{coordinates[0]}_{coordinates[1]}.png"
+                )
+                imwrite(captured_cell_filename, captured_cell)
+                current_directory = os.path.dirname(os.path.abspath(__file__))
+                templates_directory = os.path.join(current_directory, "..", "images", window_title, "W")
+                best_template_filename, min_mse = find_best_template_filename(
+                    window_title, captured_cell_filename, templates_directory
+                )
+                row_best_fit.append(best_template_filename)
+            best_fit_filenames.append(row_best_fit)
+        return best_fit_filenames
+
+    else:
+        best_fit_filenames = []
+        for row in cell_coordinates:
+            row_best_fit = []
+            for coordinates in row:
+                x1, y1, x2, y2 = coordinates
+                captured_cell = screenshot[y1:y2, x1:x2]
+                temp_dir = "C:/dev/14mv/temp"  # should not have korean
+                captured_cell_filename = os.path.join(
+                    temp_dir, f"captured_cell_{coordinates[0]}_{coordinates[1]}.png"
+                )
+                imwrite(captured_cell_filename, captured_cell)
+                current_directory = os.path.dirname(os.path.abspath(__file__))
+                templates_directory = os.path.join(current_directory, "..", "images", window_title)
+                best_template_filename, min_mse = find_best_template_filename(
+                    window_title, captured_cell_filename, templates_directory
+                )
+                row_best_fit.append(best_template_filename)
+            best_fit_filenames.append(row_best_fit)
+        return best_fit_filenames
 
 
-def parse_cell(filename):
+def parse_cell_for_numeric(filename):
     if not filename:
         return None
     name = filename.split(".")[0]
@@ -190,7 +213,7 @@ def parse_cell(filename):
 
 
 def convert_to_numeric(best_fit_cells) -> list[list[int]]:
-    return [[parse_cell(cell) for cell in row] for row in best_fit_cells]
+    return [[parse_cell_for_numeric(cell) for cell in row] for row in best_fit_cells]
 
 
 class PuzzleStatus(Enum):

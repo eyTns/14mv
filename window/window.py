@@ -42,6 +42,8 @@ from window.utils import (
     next_level_check,
     skip_level,
     solve_with_expanded_regions,
+    analyze_wregions,
+    get_grid_region,
 )
 
 
@@ -177,91 +179,142 @@ class MyWindow(QMainWindow):
         activate_window(self.window_title)
 
         while True:
-            capture_window_screenshot(self.window_title)
-            best_fit_cells = find_best_fit_cells(self.window_title, self.cell_size)
-            grid = convert_to_numeric(best_fit_cells)
-            hints = set()
-            hint_count = len(hints)
+            if "W" in self.rule and not "W'" in self.rule:
+                capture_window_screenshot(self.window_title)
+                best_fit_cells = find_best_fit_cells(
+                    self.window_title, self.cell_size, self.rule
+                )
+                grid = convert_to_numeric(best_fit_cells)
+                for row in grid:
+                    for cell in row:
+                        print(f"{str(cell).rjust(4)}", end=" ")
+                    print()
+                # print(1 / 0)
+                hints = set()
+                hint_count = len(hints)
 
-            # 초기 힌트 재귀적 적용
-            while True:
-                regions = analyze_regions(grid, self.rule)
-                hints.update(find_single_clickable_cells(regions))
-                # if self.rule == "UW":
-                #     hints.update(find_flag_adjacent_cells(grid))
-                if "Q" in self.rule:
-                    hints.update(find_remaining_cells_from_quad(grid))
+                # 영역 경우의 수 확장
+                print("searching expanded regions...")
+                wregions = analyze_wregions(grid, self.rule)
+                eregions = [
+                    ExpandedRegion.from_wregion(wregion) for wregion in wregions
+                ]
+                regions = [get_grid_region(grid, self.rule)]
+                eregions.extend(expand_regions(regions, grid, self.rule))
+
+                # if "Q" in self.rule:
+                #     eregions_rule = get_expanded_regions_by_rule(grid, RULE_Q)
+                #     eregions.extend(eregions_rule)
                 # if "T" in self.rule:
-                #     hints.update(find_single_cell_from_triplet(grid))
-                hints.update(find_double_areas(regions))
-                hints.update(find_triple_inclusions(regions))
-                hints.update(find_triple_inequalities(regions))
-                hints.update(find_quadruple_inequalities(regions[:80]))
-                hints.update(find_two_pairs_inequalities(regions[:80]))
-                if hint_count < len(hints):
-                    hint_count = len(hints)
-                    grid = apply_hints(grid, hints)
+                #     eregions_rule = get_expanded_regions_by_rule(grid, RULE_T)
+                #     eregions.extend(eregions_rule)
+                # if "A" in self.rule:
+                #     eregions_rule = get_expanded_regions_by_rule(grid, RULE_A)
+                #     eregions.extend(eregions_rule)
+                # if "H" in self.rule:
+                #     eregions_rule = get_expanded_regions_by_rule(grid, RULE_H)
+                #     eregions.extend(eregions_rule)
+                # if "U" in self.rule:
+                #     eregions_rule = get_expanded_regions_by_rule(grid, RULE_U)
+                #     eregions.extend(eregions_rule)
+                hints = solve_with_expanded_regions(eregions, grid, self.rule)
+                if hints:
+                    print(f"{len(hints)} hints found")
+                    # click_hints(self.window_title, hints, self.cell_size)
+                    click_hints_twice(self.window_title, hints, self.cell_size)
+                    next_level_check(self.window_title, save_path)
                     continue
-                break
-            if hints:
-                # click_hints(self.window_title, hints, self.cell_size)
-                click_hints_twice(self.window_title, hints, self.cell_size)
-                next_level_check(self.window_title, save_path)
-                continue
 
-            # 영역 경우의 수 확장
-            print("searching expanded regions...")
-            # regions = analyze_regions(grid, self.rule, False)
-            regions = analyze_regions(grid, self.rule)
-            eregions = expand_regions(regions, grid, self.rule)
-            if "Q" in self.rule:
-                eregions_rule = get_expanded_regions_by_rule(grid, RULE_Q)
-                eregions.extend(eregions_rule)
-            if "T" in self.rule:
-                eregions_rule = get_expanded_regions_by_rule(grid, RULE_T)
-                eregions.extend(eregions_rule)
-            if "A" in self.rule:
-                eregions_rule = get_expanded_regions_by_rule(grid, RULE_A)
-                eregions.extend(eregions_rule)
-            if "H" in self.rule:
-                eregions_rule = get_expanded_regions_by_rule(grid, RULE_H)
-                eregions.extend(eregions_rule)
-            if "U" in self.rule:
-                eregions_rule = get_expanded_regions_by_rule(grid, RULE_U)
-                eregions.extend(eregions_rule)
-            hints = solve_with_expanded_regions(eregions, grid, self.rule)
-            if hints:
-                print(f"{len(hints)} hints found")
-                # click_hints(self.window_title, hints, self.cell_size)
-                click_hints_twice(self.window_title, hints, self.cell_size)
-                next_level_check(self.window_title, save_path)
-                continue
+            else:
+                capture_window_screenshot(self.window_title)
+                best_fit_cells = find_best_fit_cells(
+                    self.window_title, self.cell_size, self.rule
+                )
+                grid = convert_to_numeric(best_fit_cells)
+                hints = set()
+                hint_count = len(hints)
 
-            # 영역 차집합 포함
-            regions = diff_regions(regions)
-            print(f"diff regions: {len(regions)}")
-            hints = set()
-            hints.update(find_single_clickable_cells(regions))
-            hints.update(find_double_areas(regions))
-            if not hints:
-                print("searching more triples...")
-                hints = hints.union(find_triple_inequalities(regions[:150], deep=True))
-            if not hints:
-                print("searching more quadruples...")
-                hints = hints.union(
-                    find_quadruple_inequalities(regions[:50], deep=True)
-                )
-            if not hints:
-                print("searching more two pairs...")
-                hints = hints.union(
-                    find_two_pairs_inequalities(regions[:50], deep=True)
-                )
-            if hints:
-                print(f"{len(hints)} hints found")
-                # click_hints(self.window_title, hints, self.cell_size)
-                click_hints_twice(self.window_title, hints, self.cell_size)
-                next_level_check(self.window_title, save_path)
-                continue
+                # 초기 힌트 재귀적 적용
+                while True:
+                    regions = analyze_regions(grid, self.rule)
+                    hints.update(find_single_clickable_cells(regions))
+                    # if self.rule == "UW":
+                    #     hints.update(find_flag_adjacent_cells(grid))
+                    if "Q" in self.rule:
+                        hints.update(find_remaining_cells_from_quad(grid))
+                    # if "T" in self.rule:
+                    #     hints.update(find_single_cell_from_triplet(grid))
+                    hints.update(find_double_areas(regions))
+                    hints.update(find_triple_inclusions(regions))
+                    hints.update(find_triple_inequalities(regions))
+                    hints.update(find_quadruple_inequalities(regions[:80]))
+                    hints.update(find_two_pairs_inequalities(regions[:80]))
+                    if hint_count < len(hints):
+                        hint_count = len(hints)
+                        grid = apply_hints(grid, hints)
+                        continue
+                    break
+                if hints:
+                    # click_hints(self.window_title, hints, self.cell_size)
+                    click_hints_twice(self.window_title, hints, self.cell_size)
+                    next_level_check(self.window_title, save_path)
+                    continue
+
+                # 영역 경우의 수 확장
+                print("searching expanded regions...")
+                # regions = analyze_regions(grid, self.rule, False)
+                regions = analyze_regions(grid, self.rule)
+                eregions = expand_regions(regions, grid, self.rule)
+                if "Q" in self.rule:
+                    eregions_rule = get_expanded_regions_by_rule(grid, RULE_Q)
+                    eregions.extend(eregions_rule)
+                if "T" in self.rule:
+                    eregions_rule = get_expanded_regions_by_rule(grid, RULE_T)
+                    eregions.extend(eregions_rule)
+                if "A" in self.rule:
+                    eregions_rule = get_expanded_regions_by_rule(grid, RULE_A)
+                    eregions.extend(eregions_rule)
+                if "H" in self.rule:
+                    eregions_rule = get_expanded_regions_by_rule(grid, RULE_H)
+                    eregions.extend(eregions_rule)
+                if "U" in self.rule:
+                    eregions_rule = get_expanded_regions_by_rule(grid, RULE_U)
+                    eregions.extend(eregions_rule)
+                hints = solve_with_expanded_regions(eregions, grid, self.rule)
+                if hints:
+                    print(f"{len(hints)} hints found")
+                    # click_hints(self.window_title, hints, self.cell_size)
+                    click_hints_twice(self.window_title, hints, self.cell_size)
+                    next_level_check(self.window_title, save_path)
+                    continue
+
+                # 영역 차집합 포함
+                regions = diff_regions(regions)
+                print(f"diff regions: {len(regions)}")
+                hints = set()
+                hints.update(find_single_clickable_cells(regions))
+                hints.update(find_double_areas(regions))
+                if not hints:
+                    print("searching more triples...")
+                    hints = hints.union(
+                        find_triple_inequalities(regions[:150], deep=True)
+                    )
+                if not hints:
+                    print("searching more quadruples...")
+                    hints = hints.union(
+                        find_quadruple_inequalities(regions[:50], deep=True)
+                    )
+                if not hints:
+                    print("searching more two pairs...")
+                    hints = hints.union(
+                        find_two_pairs_inequalities(regions[:50], deep=True)
+                    )
+                if hints:
+                    print(f"{len(hints)} hints found")
+                    # click_hints(self.window_title, hints, self.cell_size)
+                    click_hints_twice(self.window_title, hints, self.cell_size)
+                    next_level_check(self.window_title, save_path)
+                    continue
 
             break
 
