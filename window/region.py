@@ -32,6 +32,14 @@ class ExpandedRegion(BaseModel):
     def __init__(self, blank_cells: list[tuple[int, int]], cases: list[int]):
         super().__init__(blank_cells=blank_cells, cases=cases)
 
+    def __eq__(self, other: "ExpandedRegion") -> bool:
+        return all(
+            [
+                set(self.blank_cells) == set(other.blank_cells),
+                set(self.cases) == set(other.cases),
+            ]
+        )
+
     @property
     def case_count(self) -> int:
         return len(self.cases)
@@ -49,6 +57,7 @@ class ExpandedRegion(BaseModel):
         mine_combinations: list[set[tuple[int, int]]],
     ) -> "ExpandedRegion":
         cases = []
+        blank_cells.sort()
         for mine_set in mine_combinations:
             case = 0
             for i, cell in enumerate(blank_cells):

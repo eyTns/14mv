@@ -17,6 +17,8 @@ from window.const import (
     RULE_H,
     SPECIAL_CELLS,
     TOTAL_MINES,
+    MAX_EXPAND_CASES,
+    MAX_MERGE_CASES,
 )
 from window.image_utils import PuzzleStatus, capture_window_screenshot, completed_check
 from window.region import ExpandedRegion, Region
@@ -385,8 +387,7 @@ def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
     for region in regions:
         blank_cells = list(region.blank_cells)
         combinations_count = comb(len(blank_cells), region.mines_needed)
-        MAX_CASES = 20000
-        if combinations_count > MAX_CASES * 10:
+        if combinations_count > MAX_EXPAND_CASES:
             continue
 
         valid_mine_combinations = []
@@ -413,7 +414,7 @@ def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
                 if not is_valid_case_for_rule(applied_grid, RULE_U):
                     continue
             valid_mine_combinations.append(mines)
-        if len(valid_mine_combinations) > MAX_CASES:
+        if len(valid_mine_combinations) > MAX_MERGE_CASES:
             continue
 
         expanded_region = ExpandedRegion.from_mine_combinations(
@@ -438,15 +439,17 @@ def extract_hints(
     hints = set()
     uncertain_cells = []
     uncertain_cell_indices = []
-
-    for i, cell in enumerate(region.blank_cells):
-        mine_count = 0
-        for case in region.cases:
-            if case & (1 << i):
-                mine_count += 1
-        if mine_count == len(region.cases):
+    total_cases = len(region.cases)
+    bit_masks = [1 << i for i in range(len(region.blank_cells))]
+    mine_counts = [0] * len(region.blank_cells)
+    for case in region.cases:
+        for i, mask in enumerate(bit_masks):
+            if case & mask:
+                mine_counts[i] += 1
+    for i, (cell, count) in enumerate(zip(region.blank_cells, mine_counts)):
+        if count == total_cases:
             hints.add(("mine", cell))
-        elif mine_count == 0:
+        elif count == 0:
             hints.add(("safe", cell))
         else:
             uncertain_cells.append(cell)
@@ -456,24 +459,18 @@ def extract_hints(
         return set(), region
 
     if uncertain_cells:
-        new_cases = []
         mask = sum(1 << i for i in uncertain_cell_indices)
         seen_patterns = set()
-
+        new_cases = []
         for case in region.cases:
             pattern = case & mask
             if pattern not in seen_patterns:
                 seen_patterns.add(pattern)
                 new_case = 0
-                new_bit_position = 0
-
-                for i in uncertain_cell_indices:
-                    if case & (1 << i):
-                        new_case |= 1 << new_bit_position
-                    new_bit_position += 1
-
+                for new_idx, old_idx in enumerate(uncertain_cell_indices):
+                    if case & (1 << old_idx):
+                        new_case |= 1 << new_idx
                 new_cases.append(new_case)
-
         return hints, ExpandedRegion(blank_cells=uncertain_cells, cases=new_cases)
 
     return hints, None
@@ -487,25 +484,20 @@ def merge_expanded_regions(r1: ExpandedRegion, r2: ExpandedRegion) -> ExpandedRe
     Returns:
         ExpandedRegion: 병합된 새로운 region
     """
-    all_cells = []
+    all_cells = list(set(r1.blank_cells) | set(r2.blank_cells))
+    all_cells.sort()
     r1_cell_indices = {}
     r2_cell_indices = {}
-
     for i, cell in enumerate(r1.blank_cells):
-        if cell not in r1_cell_indices:
-            r1_cell_indices[cell] = i
-            all_cells.append(cell)
+        r1_cell_indices[cell] = i
     for i, cell in enumerate(r2.blank_cells):
-        if cell not in r2_cell_indices:
-            r2_cell_indices[cell] = i
-            if cell not in r1_cell_indices:
-                all_cells.append(cell)
+        r2_cell_indices[cell] = i
+
     new_cases = []
     for case1 in r1.cases:
         for case2 in r2.cases:
             valid = True
             new_case = 0
-
             for new_idx, cell in enumerate(all_cells):
                 mine1 = None
                 mine2 = None
@@ -532,7 +524,6 @@ def solve_with_expanded_regions(
     eregions: list[ExpandedRegion], grid: list[list[int]], rule: str
 ) -> list[tuple[str, tuple[int, int]]]:
     hints = set()
-    MAX_CASES = 20000
 
     reduced_regions = []
     for region in eregions:
@@ -557,18 +548,55 @@ def solve_with_expanded_regions(
     start_time = time.time()
 
     while len(eregions) > 1:
-        print(f"{len(eregions)} / ", end="")
+        print(f"{len(eregions)}", end=" / ")
+        # print(f"{len(eregions)} / ")
+
         eregions.sort(key=lambda r: len(r.cases))
         r1 = eregions.pop(0)
+        # print(r1, end=" / ")
+
+        # 부분집합 관계인 영역들 처리
+        subset_region = 0
+        for i in range(len(eregions)):
+            r2 = eregions[i]
+            if set(r1.blank_cells).issubset(set(r2.blank_cells)):
+                merged = merge_expanded_regions(r1, r2)
+                if merged is None:
+                    continue
+                if "Q" in rule:
+                    merged = filter_cases_by_rule(merged, grid, RULE_Q)
+                if "T" in rule:
+                    merged = filter_cases_by_rule(merged, grid, RULE_T)
+                if "A" in rule:
+                    merged = filter_cases_by_rule(merged, grid, RULE_A)
+                if "H" in rule:
+                    merged = filter_cases_by_rule(merged, grid, RULE_H)
+                if "U" in rule:
+                    merged = filter_cases_by_rule(merged, grid, RULE_U)
+                if merged is None:
+                    continue
+                new_hints, reduced = extract_hints(merged)
+                if new_hints:
+                    hints.update(new_hints)
+                if reduced:
+                    subset_region += 1
+                    eregions[i] = reduced
+
+        if subset_region >= 2:
+            # 전체가 아닌 영역끼리 합친 경우
+            print(f"subset case exist for r1 - {r1}")
+            continue
 
         min_cases = float("inf")
         best_reduced = None
         best_partner_idx = None
 
-        for i, r2 in enumerate(eregions):
+        # 영역 병합
+        for i in range(len(eregions)):
+            r2 = eregions[i]
             if not set(r1.blank_cells) & set(r2.blank_cells):
                 continue
-            if r1.case_count * r2.case_count > MAX_CASES:
+            if r1.case_count * r2.case_count > MAX_EXPAND_CASES:
                 continue
             merged = merge_expanded_regions(r1, r2)
             if "Q" in rule:
@@ -588,7 +616,7 @@ def solve_with_expanded_regions(
                 hints.update(new_hints)
             if time.time() - start_time > 0.5 and hints:
                 return hints
-            if reduced and 1 < len(reduced.cases) <= MAX_CASES:
+            if reduced and 1 < len(reduced.cases) <= MAX_MERGE_CASES:
                 if len(reduced.cases) < min_cases:
                     min_cases = len(reduced.cases)
                     best_reduced = reduced
@@ -597,9 +625,10 @@ def solve_with_expanded_regions(
             return hints
         if best_partner_idx is not None:
             eregions.pop(best_partner_idx)
-            if best_reduced and 1 < len(best_reduced.cases) <= MAX_CASES:
+            if best_reduced and 1 < len(best_reduced.cases) <= MAX_MERGE_CASES:
                 eregions.append(best_reduced)
         print(f"{len(r1.cases)} -> {min_cases}")
+
     if eregions:
         final_hints, _ = extract_hints(eregions[0])
         hints.update(final_hints)
@@ -741,6 +770,8 @@ def next_level_check(window_title, save_path):
         time.sleep(0.05)
     elif status == PuzzleStatus.NEXT:
         click_positions(window_title, [CLICK_COORDINATES["next_level"]])
+    elif status == PuzzleStatus.STAR_BROKEN:
+        skip_level(window_title)
 
 
 def skip_level(window_title):

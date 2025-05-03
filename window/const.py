@@ -1,3 +1,8 @@
+## not fixed
+MAX_EXPAND_CASES = 640000  # too slow
+# MAX_EXPAND_CASES = 90000 # size 5
+MAX_MERGE_CASES = 640000
+
 TOTAL_MINES = {
     "V": [10, 14, 20, 26],
     "Q": [10, 14, 20, 26],
@@ -93,14 +98,12 @@ INITIAL_POSITIONS_2 = {
     8: (341, 180),
 }
 
-
 SPECIAL_CELLS = {
     "blank": -1,
     "flag": -2,
     "question": -3,
     "star": -3,
 }
-
 
 CLICK_COORDINATES = {
     "next_level": (564, 484, "left"),

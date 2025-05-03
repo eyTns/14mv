@@ -197,6 +197,7 @@ class PuzzleStatus(Enum):
     FINISH = "Finish"
     NEXT = "Next"
     INCOMPLETE = "Incomplete"
+    STAR_BROKEN = "Star Broken"
 
 
 def completed_check(screenshot_path) -> PuzzleStatus:
@@ -214,15 +215,19 @@ def completed_check(screenshot_path) -> PuzzleStatus:
         dark_yellow = (0, 178, 178)
         # ultimate mode
         dark_red = (0, 0, 178)
+        black = (0, 0, 0)
         color1 = screenshot[51, 833]
         color2 = screenshot[65, 868]
         color3 = screenshot[70, 863]
+        color_LD = screenshot[580, 41]
         if (color1 == yellow).all() and (color2 == yellow).all():
             return PuzzleStatus.FINISH
         if (color1 == dark_yellow).all() and (color3 == dark_yellow).all():
             return PuzzleStatus.NEXT
         if (color1 == dark_red).all() and (color3 == dark_red).all():
             return PuzzleStatus.NEXT
+        if (color_LD == black).all():
+            return PuzzleStatus.STAR_BROKEN
         return PuzzleStatus.INCOMPLETE
 
     except Exception as e:
