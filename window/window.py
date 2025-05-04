@@ -46,6 +46,7 @@ from window.utils import (
     analyze_lregions,
     analyze_pregions,
     get_grid_region,
+    process_hints,
 )
 
 
@@ -181,158 +182,93 @@ class MyWindow(QMainWindow):
         activate_window(self.window_title)
 
         while True:
-            if (
+            capture_window_screenshot(self.window_title)
+            best_fit_cells = find_best_fit_cells(
+                self.window_title, self.cell_size, self.rule
+            )
+            grid = convert_to_numeric(best_fit_cells)
+            # if capture_and_stop:
+            #     for row in grid:
+            #         for cell in row:
+            #             print(f"{str(cell).rjust(4)}", end=" ")
+            #         print()
+            #     print(1 / 0)
+            hints = set()
+            hint_count = len(hints)
+            special_rules = (
                 ("W" in self.rule and not "W'" in self.rule)
                 or ("L" in self.rule)
                 or ("P" in self.rule)
-            ):
-                capture_window_screenshot(self.window_title)
-                best_fit_cells = find_best_fit_cells(
-                    self.window_title, self.cell_size, self.rule
-                )
-                grid = convert_to_numeric(best_fit_cells)
-                for row in grid:
-                    for cell in row:
-                        print(f"{str(cell).rjust(4)}", end=" ")
-                    print()
-                # print(1 / 0)
-                hints = set()
-                hint_count = len(hints)
+            )
 
-                # 영역 경우의 수 확장
-                print("searching expanded regions...")
-                exregions = []
+            # 영역 경우의 수 확장
+            print("searching expanded regions...")
+            exregions = []
+            if special_rules:
                 if "W" in self.rule and not "W'" in self.rule:
-                    wregions = analyze_wregions(grid, self.rule)
-                    for wregion in wregions:
-                        exregions.append(ExpandedRegion.from_wregion(wregion))
+                    for region in analyze_wregions(grid, self.rule):
+                        exregions.append(ExpandedRegion.from_wregion(region))
                 if "L" in self.rule:
-                    lregions = analyze_lregions(grid, self.rule)
-                    for lregion in lregions:
-                        exregions.append(ExpandedRegion.from_lregion(lregion))
+                    for region in analyze_lregions(grid, self.rule):
+                        exregions.append(ExpandedRegion.from_lregion(region))
                 if "P" in self.rule:
-                    pregions = analyze_pregions(grid, self.rule)
-                    for pregion in pregions:
-                        exregions.append(ExpandedRegion.from_pregion(pregion))
+                    for region in analyze_pregions(grid, self.rule):
+                        exregions.append(ExpandedRegion.from_pregion(region))
                 regions = [get_grid_region(grid, self.rule)]
                 exregions.extend(expand_regions(regions, grid, self.rule))
-
-                # if "Q" in self.rule:
-                #     exregions_rule = get_expanded_regions_by_rule(grid, RULE_Q)
-                #     exregions.extend(exregions_rule)
-                # if "T" in self.rule:
-                #     exregions_rule = get_expanded_regions_by_rule(grid, RULE_T)
-                #     exregions.extend(exregions_rule)
-                # if "A" in self.rule:
-                #     exregions_rule = get_expanded_regions_by_rule(grid, RULE_A)
-                #     exregions.extend(exregions_rule)
-                # if "H" in self.rule:
-                #     exregions_rule = get_expanded_regions_by_rule(grid, RULE_H)
-                #     exregions.extend(exregions_rule)
-                # if "U" in self.rule:
-                #     exregions_rule = get_expanded_regions_by_rule(grid, RULE_U)
-                #     exregions.extend(exregions_rule)
-                hints = solve_with_expanded_regions(exregions, grid, self.rule)
-                if hints:
-                    print(f"{len(hints)} hints found")
-                    # click_hints(self.window_title, hints, self.cell_size)
-                    click_hints_twice(self.window_title, hints, self.cell_size)
-                    next_level_check(self.window_title, save_path)
-                    continue
-
             else:
-                capture_window_screenshot(self.window_title)
-                best_fit_cells = find_best_fit_cells(
-                    self.window_title, self.cell_size, self.rule
-                )
-                grid = convert_to_numeric(best_fit_cells)
-                hints = set()
-                hint_count = len(hints)
-
-                # 초기 힌트 재귀적 적용
+                hint_count = 0
                 while True:
                     regions = analyze_regions(grid, self.rule)
-                    hints.update(find_single_clickable_cells(regions))
-                    # if self.rule == "UW":
-                    #     hints.update(find_flag_adjacent_cells(grid))
+                    if self.rule == "UW":
+                        hints.update(find_flag_adjacent_cells(grid))
                     if "Q" in self.rule:
                         hints.update(find_remaining_cells_from_quad(grid))
-                    # if "T" in self.rule:
-                    #     hints.update(find_single_cell_from_triplet(grid))
+                    if "T" in self.rule:
+                        hints.update(find_single_cell_from_triplet(grid))
+                    hints.update(find_single_clickable_cells(regions))
                     hints.update(find_double_areas(regions))
-                    hints.update(find_triple_inclusions(regions))
-                    hints.update(find_triple_inequalities(regions))
-                    hints.update(find_quadruple_inequalities(regions[:80]))
-                    hints.update(find_two_pairs_inequalities(regions[:80]))
+                    hints.update(find_triple_inclusions(regions[:200]))
+                    hints.update(find_triple_inequalities(regions[:200]))
+                    hints.update(find_quadruple_inequalities(regions[:60]))
+                    hints.update(find_two_pairs_inequalities(regions[:60]))
                     if hint_count < len(hints):
                         hint_count = len(hints)
                         grid = apply_hints(grid, hints)
                         continue
                     break
-                if hints:
-                    # click_hints(self.window_title, hints, self.cell_size)
-                    click_hints_twice(self.window_title, hints, self.cell_size)
-                    next_level_check(self.window_title, save_path)
-                    continue
 
-                # 영역 경우의 수 확장
-                print("searching expanded regions...")
-                # regions = analyze_regions(grid, self.rule, False)
+                if hints:
+                    process_hints(self.window_title, hints, self.cell_size, save_path)
+                    continue
                 regions = analyze_regions(grid, self.rule)
                 exregions = expand_regions(regions, grid, self.rule)
-                if "Q" in self.rule:
-                    exregions_rule = get_expanded_regions_by_rule(grid, RULE_Q)
-                    exregions.extend(exregions_rule)
-                if "T" in self.rule:
-                    exregions_rule = get_expanded_regions_by_rule(grid, RULE_T)
-                    exregions.extend(exregions_rule)
-                if "A" in self.rule:
-                    exregions_rule = get_expanded_regions_by_rule(grid, RULE_A)
-                    exregions.extend(exregions_rule)
-                if "H" in self.rule:
-                    exregions_rule = get_expanded_regions_by_rule(grid, RULE_H)
-                    exregions.extend(exregions_rule)
-                if "U" in self.rule:
-                    exregions_rule = get_expanded_regions_by_rule(grid, RULE_U)
-                    exregions.extend(exregions_rule)
-                hints = solve_with_expanded_regions(exregions, grid, self.rule)
-                if hints:
-                    print(f"{len(hints)} hints found")
-                    # click_hints(self.window_title, hints, self.cell_size)
-                    click_hints_twice(self.window_title, hints, self.cell_size)
-                    next_level_check(self.window_title, save_path)
-                    continue
+                for rule_char in "QTAHU":
+                    if rule_char in self.rule:
+                        rule_constant = globals()[f"RULE_{rule_char}"]
+                        exregions.extend(
+                            get_expanded_regions_by_rule(grid, rule_constant)
+                        )
+            hints = solve_with_expanded_regions(exregions, grid, self.rule)
+            if hints:
+                process_hints(self.window_title, hints, self.cell_size, save_path)
+                continue
 
-                # 영역 차집합 포함
+            if not special_rules:
                 regions = diff_regions(regions)
                 print(f"diff regions: {len(regions)}")
                 hints = set()
                 hints.update(find_single_clickable_cells(regions))
                 hints.update(find_double_areas(regions))
-                if not hints:
-                    print("searching more triples...")
-                    hints = hints.union(
-                        find_triple_inequalities(regions[:150], deep=True)
-                    )
-                if not hints:
-                    print("searching more quadruples...")
-                    hints = hints.union(
-                        find_quadruple_inequalities(regions[:50], deep=True)
-                    )
-                if not hints:
-                    print("searching more two pairs...")
-                    hints = hints.union(
-                        find_two_pairs_inequalities(regions[:50], deep=True)
-                    )
+                hints.update(find_triple_inclusions(regions[:200]))
+                hints.update(find_triple_inequalities(regions[:200]))
+                hints.update(find_quadruple_inequalities(regions[:60]))
+                hints.update(find_two_pairs_inequalities(regions[:60]))
                 if hints:
-                    print(f"{len(hints)} hints found")
-                    # click_hints(self.window_title, hints, self.cell_size)
-                    click_hints_twice(self.window_title, hints, self.cell_size)
-                    next_level_check(self.window_title, save_path)
+                    process_hints(self.window_title, hints, self.cell_size, save_path)
                     continue
                 else:
                     print("hint not found")
-
             break
 
     def start_new_process(self):

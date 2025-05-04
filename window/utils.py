@@ -17,8 +17,7 @@ from window.const import (
     RULE_H,
     SPECIAL_CELLS,
     TOTAL_MINES,
-    MAX_EXPAND_CASES,
-    MAX_MERGE_CASES,
+    MAX_CASES,
 )
 from window.image_utils import PuzzleStatus, capture_window_screenshot, completed_check
 from window.region import ExpandedRegion, Region, WRegion, LRegion, PRegion
@@ -46,10 +45,12 @@ def get_neighboring_cells_with_indices(row, col, grid):
 
 
 def get_total_mines(rule, cell_size):
-    if rule in TOTAL_MINES:
-        return TOTAL_MINES[rule][cell_size - 5]
+    if rule[0] == "B":
+        return TOTAL_MINES["B"][cell_size - 5]
+    elif rule[0] in ["A", "H"]:
+        return TOTAL_MINES["AH"][cell_size - 5]
     else:
-        return None
+        return TOTAL_MINES["STANDARD"][cell_size - 5]
 
 
 def get_cell_region(grid, rule, row, col) -> Region:
@@ -478,7 +479,7 @@ def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
     for region in regions:
         blank_cells = list(region.blank_cells)
         combinations_count = comb(len(blank_cells), region.mines_needed)
-        if combinations_count > MAX_EXPAND_CASES:
+        if combinations_count > MAX_CASES:
             continue
 
         valid_mine_combinations = []
@@ -505,7 +506,7 @@ def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
                 if not is_valid_case_for_rule(applied_grid, RULE_U):
                     continue
             valid_mine_combinations.append(mines)
-        if len(valid_mine_combinations) > MAX_MERGE_CASES:
+        if len(valid_mine_combinations) > MAX_CASES:
             continue
 
         expanded_region = ExpandedRegion.from_mine_combinations(
@@ -611,114 +612,86 @@ def merge_expanded_regions(r1: ExpandedRegion, r2: ExpandedRegion) -> ExpandedRe
     return ExpandedRegion(blank_cells=all_cells, cases=new_cases)
 
 
+def apply_all_rules(
+    region: ExpandedRegion, grid: list[list[int]], rule: str
+) -> ExpandedRegion:
+    if "Q" in rule:
+        region = filter_cases_by_rule(region, grid, RULE_Q)
+    if "T" in rule:
+        region = filter_cases_by_rule(region, grid, RULE_T)
+    if "A" in rule:
+        region = filter_cases_by_rule(region, grid, RULE_A)
+    if "H" in rule:
+        region = filter_cases_by_rule(region, grid, RULE_H)
+    if "U" in rule:
+        region = filter_cases_by_rule(region, grid, RULE_U)
+    return region
+
+
 def solve_with_expanded_regions(
     exregions: list[ExpandedRegion], grid: list[list[int]], rule: str
-) -> list[tuple[str, tuple[int, int]]]:
+) -> set[tuple[str, tuple[int, int]]]:
     hints = set()
 
     reduced_regions = []
-    for region in exregions:
-        if "Q" in rule:
-            region = filter_cases_by_rule(region, grid, RULE_Q)
-        if "T" in rule:
-            region = filter_cases_by_rule(region, grid, RULE_T)
-        if "A" in rule:
-            region = filter_cases_by_rule(region, grid, RULE_A)
-        if "H" in rule:
-            region = filter_cases_by_rule(region, grid, RULE_H)
-        if "U" in rule:
-            region = filter_cases_by_rule(region, grid, RULE_U)
-        new_hints, reduced = extract_hints(region)
+    for exregion in exregions:
+        exregion = apply_all_rules(exregion, grid, rule)
+        new_hints, reduced = extract_hints(exregion)
         if new_hints:
             hints.update(new_hints)
         if reduced:
             reduced_regions.append(reduced)
-
     exregions = reduced_regions
-
     start_time = time.time()
 
     while len(exregions) > 1:
         print(f"{len(exregions)}", end=" / ")
         # print(f"{len(exregions)} / ")
-
         exregions.sort(key=lambda r: len(r.cases))
         r1 = exregions.pop(0)
         # print(r1, end=" / ")
 
-        # 부분집합 관계인 영역들 처리
         subset_region = 0
-        for i in range(len(exregions)):
-            r2 = exregions[i]
-            if set(r1.blank_cells).issubset(set(r2.blank_cells)):
-                merged = merge_expanded_regions(r1, r2)
-                if merged is None:
-                    continue
-                if "Q" in rule:
-                    merged = filter_cases_by_rule(merged, grid, RULE_Q)
-                if "T" in rule:
-                    merged = filter_cases_by_rule(merged, grid, RULE_T)
-                if "A" in rule:
-                    merged = filter_cases_by_rule(merged, grid, RULE_A)
-                if "H" in rule:
-                    merged = filter_cases_by_rule(merged, grid, RULE_H)
-                if "U" in rule:
-                    merged = filter_cases_by_rule(merged, grid, RULE_U)
-                if merged is None:
-                    continue
-                new_hints, reduced = extract_hints(merged)
-                if new_hints:
-                    hints.update(new_hints)
-                if reduced:
-                    subset_region += 1
-                    exregions[i] = reduced
-
-        if subset_region >= 2:
-            # 전체가 아닌 영역끼리 합친 경우
-            print(f"subset case exist for r1 - {r1}")
-            continue
-
         min_cases = float("inf")
         best_reduced = None
         best_partner_idx = None
-
-        # 영역 병합
         for i in range(len(exregions)):
             r2 = exregions[i]
-            if not set(r1.blank_cells) & set(r2.blank_cells):
+            r1_cells = set(r1.blank_cells)
+            r2_cells = set(r2.blank_cells)
+            is_subset = r1_cells.issubset(r2_cells)
+            if r1.case_count * r2.case_count > MAX_CASES and not is_subset:
                 continue
-            if r1.case_count * r2.case_count > MAX_EXPAND_CASES:
-                continue
+
             merged = merge_expanded_regions(r1, r2)
-            if "Q" in rule:
-                merged = filter_cases_by_rule(merged, grid, RULE_Q)
-            if "T" in rule:
-                merged = filter_cases_by_rule(merged, grid, RULE_T)
-            if "A" in rule:
-                merged = filter_cases_by_rule(merged, grid, RULE_A)
-            if "H" in rule:
-                merged = filter_cases_by_rule(merged, grid, RULE_H)
-            if "U" in rule:
-                merged = filter_cases_by_rule(merged, grid, RULE_U)
-            if merged is None:
-                continue
+            merged = apply_all_rules(merged, grid, rule)
             new_hints, reduced = extract_hints(merged)
             if new_hints:
                 hints.update(new_hints)
             if time.time() - start_time > 0.5 and hints:
                 return hints
-            if reduced and 1 < len(reduced.cases) <= MAX_MERGE_CASES:
+            if is_subset and reduced:
+                subset_region += 1
+                exregions[i] = reduced
+            elif not is_subset and reduced and 1 < len(reduced.cases) <= MAX_CASES:
                 if len(reduced.cases) < min_cases:
                     min_cases = len(reduced.cases)
                     best_reduced = reduced
                     best_partner_idx = i
+        # if subset_region >= 2:
+        #     print(f"subset case exist for r1 - {r1}")
+        #     continue
         if time.time() - start_time > 0.5 and hints:
             return hints
         if best_partner_idx is not None:
+            # print(f"Merging:")
+            # print(f"R1 - {r1.blank_cells} /// {r1.cases[:20]}")
+            # print(f"R2 - {exregions[best_partner_idx].blank_cells} /// {exregions[best_partner_idx].cases[:20]}")
+            # print(f"R3 - {best_reduced.blank_cells} /// {best_reduced.cases[:20]}")
             exregions.pop(best_partner_idx)
-            if best_reduced and 1 < len(best_reduced.cases) <= MAX_MERGE_CASES:
+            if best_reduced and len(best_reduced.cases) <= MAX_CASES:
                 exregions.append(best_reduced)
-        print(f"{len(r1.cases)} -> {min_cases}")
+            print(f"{len(r1.cases)} -> {min_cases}")
 
     if exregions:
         final_hints, _ = extract_hints(exregions[0])
@@ -869,3 +842,10 @@ def skip_level(window_title):
     skip1 = CLICK_COORDINATES["skip_button"]
     skip2 = CLICK_COORDINATES["confirm_skip"]
     click_positions(window_title, [skip1, skip2])
+
+
+def process_hints(window_title, hints, size, save_path):
+    print(f"{len(hints)} hints found")
+    # click_hints(self.window_title, hints, self.cell_size)
+    click_hints_twice(window_title, hints, size)
+    next_level_check(window_title, save_path)

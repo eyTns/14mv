@@ -1,50 +1,16 @@
 ## not fixed
-
-## easy puzzles, fast
-# MAX_EXPAND_CASES = 1000
-# MAX_MERGE_CASES = 1000
-
-## easy puzzles, fast
-MAX_EXPAND_CASES = 10000
-MAX_MERGE_CASES = 10000
-
-## works on most of size 5 puzzles
-# MAX_EXPAND_CASES = 90000
-# MAX_MERGE_CASES = 90000
-
-## very hard case
-# MAX_EXPAND_CASES = 640000
-# MAX_MERGE_CASES = 640000
+# MAX_CASES = 10000  ## easy puzzles, fast
+# MAX_CASES = 30000  ## medium puzzles
+MAX_CASES = 90000  ## hard puzzles (works on most of size 5 puzzles)
+# MAX_CASES = 650000  ## very hard case (works up to 22 choose 10 = 646646)
 
 
 TOTAL_MINES = {
-    ## left side
-    "V": [10, 14, 20, 26],
-    "Q": [10, 14, 20, 26],
-    "T": [10, 14, 20, 26],
+    "STANDARD": [10, 14, 20, 26],
     "B": [10, 12, 21, 24],
-    "A": [8, 10, 14, 20],
-    "H": [8, 10, 14, 20],
-    ## right side
-    "L": [10, 14, 20, 26],
-    "W": [10, 14, 20, 26],
-    "X": [10, 14, 20, 26],
-    "P": [10, 14, 20, 26],
-    "X'": [10, 14, 20, 26],
-    "K": [10, 14, 20, 26],
-    ## combination
-    "QX": [10, 14, 20, 26],
-    "BX": [10, 12, 21, 24],
-    "BX'": [10, 12, 21, 24],
-    "BK": [10, 12, 21, 24],
-    "AK": [8, 10, 14, 20],
-    "HK": [8, 10, 14, 20],
-    "QT": [10, 14, 20, 26],
-    "UW": [8, 10, 14, 20],
-    ## 14mv2
-    "D": [10, 14, 20, 26],
-    "BD": [10, 12, 21, 24],
+    "AH": [8, 10, 14, 20],
 }
+
 
 NEIGHBORS = {
     ## left side
