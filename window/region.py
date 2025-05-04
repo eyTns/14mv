@@ -58,6 +58,11 @@ class ExpandedRegion(BaseModel):
             ]
         )
 
+    def __hash__(self) -> int:
+        blank_cells_tuple = tuple(sorted(self.blank_cells))
+        cases_tuple = tuple(sorted(self.cases))
+        return hash((blank_cells_tuple, cases_tuple))
+
     @property
     def case_count(self) -> int:
         return len(self.cases)
@@ -67,6 +72,34 @@ class ExpandedRegion(BaseModel):
         for i, cell in enumerate(self.blank_cells):
             has_mine = bool(case & (1 << i))
             yield cell, has_mine
+
+    def _get_surrounding_cells(center: tuple[int, int]) -> list[tuple[int, int]]:
+        center_x, center_y = center
+        return [
+            (center_x + dx, center_y + dy)
+            for dx in [-1, 0, 1]
+            for dy in [-1, 0, 1]
+            if not (dx == 0 and dy == 0)
+        ]
+
+    @classmethod
+    def _prepare_blank_cells(
+        cls,
+        center: tuple[int, int],
+        pre_filled_mines: list[tuple[int, int]],
+        pre_filled_numbers: list[tuple[int, int]],
+    ) -> list[tuple[int, int]]:
+        surrounding_cells = cls._get_surrounding_cells(center)
+        mines_set = set(pre_filled_mines)
+        numbers_set = set(pre_filled_numbers)
+        blank_cells = sorted(
+            [
+                cell
+                for cell in surrounding_cells
+                if cell not in mines_set and cell not in numbers_set
+            ]
+        )
+        return blank_cells, surrounding_cells
 
     @classmethod
     def from_mine_combinations(
@@ -86,30 +119,21 @@ class ExpandedRegion(BaseModel):
 
     @classmethod
     def from_wregion(cls, wregion: WRegion) -> "ExpandedRegion":
-        center_x, center_y = wregion.center
-        surrounding_cells = []
-        for dx in [-1, 0, 1]:
-            for dy in [-1, 0, 1]:
-                if dx == 0 and dy == 0:
-                    continue
-                surrounding_cells.append((center_x + dx, center_y + dy))
-
-        blank_cells = [
-            cell
-            for cell in surrounding_cells
-            if cell not in wregion.pre_filled_mines
-            and cell not in wregion.pre_filled_numbers
-        ]
-        blank_cells.sort()
-
+        blank_cells, surrounding_cells = cls._prepare_blank_cells(
+            wregion.center, wregion.pre_filled_mines, wregion.pre_filled_numbers
+        )
         valid_cases = []
+        pre_filled_mines_set = set(wregion.pre_filled_mines)
+        sorted_mines_component = sorted(wregion.mines_component)
+
         for case_bits in range(1 << len(blank_cells)):
-            current_mines = set(wregion.pre_filled_mines)
-            for i, cell in enumerate(blank_cells):
-                if case_bits & (1 << i):
-                    current_mines.add(cell)
-            if get_mines_component(surrounding_cells, current_mines) == sorted(
-                wregion.mines_component
+            current_mines = pre_filled_mines_set.copy()
+            current_mines.update(
+                blank_cells[i] for i in range(len(blank_cells)) if case_bits & (1 << i)
+            )
+            if (
+                get_mines_component(surrounding_cells, current_mines)
+                == sorted_mines_component
             ):
                 valid_cases.append(case_bits)
 
@@ -117,57 +141,37 @@ class ExpandedRegion(BaseModel):
 
     @classmethod
     def from_lregion(cls, lregion: LRegion) -> "ExpandedRegion":
-        center_x, center_y = lregion.center
-        surrounding_cells = []
-        for dx in [-1, 0, 1]:
-            for dy in [-1, 0, 1]:
-                if dx == 0 and dy == 0:
-                    continue
-                surrounding_cells.append((center_x + dx, center_y + dy))
-        blank_cells = [
-            cell
-            for cell in surrounding_cells
-            if cell not in lregion.pre_filled_mines
-            and cell not in lregion.pre_filled_numbers
-        ]
-        blank_cells.sort()
+        blank_cells, _ = cls._prepare_blank_cells(
+            lregion.center, lregion.pre_filled_mines, lregion.pre_filled_numbers
+        )
         valid_cases = []
+        pre_filled_mines_count = len(lregion.pre_filled_mines)
+        target_numbers = {lregion.number - 1, lregion.number + 1}
+
         for case_bits in range(1 << len(blank_cells)):
-            mine_count = len(lregion.pre_filled_mines)
-            for i, cell in enumerate(blank_cells):
-                if case_bits & (1 << i):
-                    mine_count += 1
-            if lregion.number in [mine_count + 1, mine_count - 1]:
+            mine_count = pre_filled_mines_count + bin(case_bits).count("1")
+            if mine_count in target_numbers:
                 valid_cases.append(case_bits)
 
         return cls(blank_cells=blank_cells, cases=valid_cases)
 
     @classmethod
     def from_pregion(cls, pregion: PRegion) -> "ExpandedRegion":
-        center_x, center_y = pregion.center
-        surrounding_cells = []
-        for dx in [-1, 0, 1]:
-            for dy in [-1, 0, 1]:
-                if dx == 0 and dy == 0:
-                    continue
-                surrounding_cells.append((center_x + dx, center_y + dy))
-        blank_cells = [
-            cell
-            for cell in surrounding_cells
-            if cell not in pregion.pre_filled_mines
-            and cell not in pregion.pre_filled_numbers
-        ]
-        blank_cells.sort()
-
+        blank_cells, surrounding_cells = cls._prepare_blank_cells(
+            pregion.center, pregion.pre_filled_mines, pregion.pre_filled_numbers
+        )
         valid_cases = []
+        pre_filled_mines_set = set(pregion.pre_filled_mines)
+        target_number = pregion.number
+
         for case_bits in range(1 << len(blank_cells)):
-            current_mines = set(pregion.pre_filled_mines)
-            for i, cell in enumerate(blank_cells):
-                if case_bits & (1 << i):
-                    current_mines.add(cell)
+            current_mines = pre_filled_mines_set.copy()
+            current_mines.update(
+                blank_cells[i] for i in range(len(blank_cells)) if case_bits & (1 << i)
+            )
             if (
                 len(get_mines_component(surrounding_cells, current_mines))
-                == pregion.number
+                == target_number
             ):
                 valid_cases.append(case_bits)
 
