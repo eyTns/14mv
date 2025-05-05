@@ -23,7 +23,16 @@ from window.const import (
     MAX_CASES,
 )
 from window.image_utils import PuzzleStatus, capture_window_screenshot, completed_check
-from window.region import ExpandedRegion, Region, WRegion, LRegion, PRegion
+from window.region import (
+    ExpandedRegion,
+    Region,
+    WRegion,
+    LRegion,
+    PRegion,
+    MRegion,
+    NRegion,
+    WprimeRegion,
+)
 from window.rules import (
     is_valid_case_for_rule,
     filter_cases_by_rule,
@@ -60,30 +69,18 @@ def get_total_mines(rule, cell_size):
         return TOTAL_MINES["STANDARD"][cell_size - 5]
 
 
+def get_neighbors(rule):
+    for key in ["X", "X'", "K"]:
+        if rule.endswith(key):
+            return NEIGHBORS[key]
+    else:
+        return NEIGHBORS["STANDARD"]
+
+
 def get_cell_region(grid, rule, row, col) -> Region:
-    """
-    주어진 셀의 이웃한 빈 칸들을 찾습니다.
-
-    Args:
-        grid (list): 게임 그리드
-        rule (str): "V", "X" 등 - 이웃을 찾는 규칙
-            V: 주변 8방향의 1칸
-            X: 상하좌우 방향으로 1-2칸
-        row (int): 현재 셀의 행 번호
-        col (int): 현재 셀의 열 번호
-
-    Returns:
-        Region:
-    """
     mines_needed = grid[row][col]
     neighboring_blanks = set()
-
-    if rule in NEIGHBORS.keys():
-        neighbors = NEIGHBORS[rule]
-    else:
-        raise ValueError(f"Invalid rule. Available rules: {NEIGHBORS.keys()}")
-
-    for dr, dc in neighbors:
+    for dr, dc in get_neighbors(rule):
         r = row + dr
         c = col + dc
         if 0 <= r < len(grid) and 0 <= c < len(grid[0]):
@@ -172,22 +169,22 @@ def analyze_regions_by_rule(grid, rule) -> list:
 
     if rule == "W":
         region_type = WRegion
+    elif rule == "W'":
+        region_type = WprimeRegion
     elif rule == "L":
         region_type = LRegion
     elif rule == "P":
         region_type = PRegion
+    elif rule == "M":
+        region_type = MRegion
+    elif rule == "N":
+        region_type = NRegion
 
     for r in range(rows):
         for c in range(cols):
             if grid[r][c] >= 0:
                 center = (r, c)
                 cell_value = grid[r][c]
-                mines_component = None
-                if rule == "W":
-                    if cell_value == 0:
-                        mines_component = []
-                    else:
-                        mines_component = [int(digit) for digit in str(cell_value)]
                 pre_filled_mines = []
                 pre_filled_numbers = []
                 has_blank = False
@@ -212,20 +209,12 @@ def analyze_regions_by_rule(grid, rule) -> list:
                             has_blank = True
 
                 if has_blank:
-                    if rule == "W":
-                        region = WRegion(
-                            center=center,
-                            mines_component=mines_component,
-                            pre_filled_mines=pre_filled_mines,
-                            pre_filled_numbers=pre_filled_numbers,
-                        )
-                    else:  # L or P
-                        region = region_type(
-                            center=center,
-                            number=cell_value,
-                            pre_filled_mines=pre_filled_mines,
-                            pre_filled_numbers=pre_filled_numbers,
-                        )
+                    region = region_type(
+                        center=center,
+                        number=cell_value,
+                        pre_filled_mines=pre_filled_mines,
+                        pre_filled_numbers=pre_filled_numbers,
+                    )
                     regions.append(region)
 
     return regions
@@ -841,11 +830,12 @@ def next_level_check(window_title, save_path):
     if status == PuzzleStatus.FINISH:
         input_spacebar(window_title)
         click_positions(window_title, [CLICK_COORDINATES["next_level"]])
-        time.sleep(0.05)
     elif status == PuzzleStatus.NEXT:
         click_positions(window_title, [CLICK_COORDINATES["next_level"]])
     elif status == PuzzleStatus.STAR_BROKEN:
         skip_level(window_title)
+    elif status == PuzzleStatus.WRONG_POPUP:
+        click_positions(window_title, [CLICK_COORDINATES["close_popup"]])
 
 
 def skip_level(window_title):

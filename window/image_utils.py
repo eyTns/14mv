@@ -40,7 +40,7 @@ def capture_window_screenshot(window_title):
     try:
         target_window = gw.getWindowsWithTitle(window_title)[0]
         target_window.activate()
-        time.sleep(0.05)
+        time.sleep(0.03)
         x, y, width, height = (
             target_window.left,
             target_window.top,
@@ -132,23 +132,35 @@ def MSE_of_images(image_path_1, image_path_2):
     return mse
 
 
+def count_different_pixels(image_path_1, image_path_2):
+    image1 = imread(image_path_1)
+    image2 = imread(image_path_2)
+    diff_mask = np.any(image1 - image2 != 0, axis=2)
+    return np.count_nonzero(diff_mask)
+
+
 def find_best_template_filename(window_title, captured_cell_path, templates_directory):
     best_template_filename = None
-    min_mse = float("inf")
+    min_diff_pixels = float("inf")
     for template_filename in os.listdir(templates_directory):
-        mse = MSE_of_images(
-            captured_cell_path, os.path.join(templates_directory, template_filename)
-        )
-        if mse < min_mse:
-            min_mse = mse
+        template_path = os.path.join(templates_directory, template_filename)
+        diff_pixels = count_different_pixels(captured_cell_path, template_path)
+        if diff_pixels < min_diff_pixels:
+            min_diff_pixels = diff_pixels
             best_template_filename = template_filename
+
+    # if min_diff_pixels > 0:
+    #     print(f"min_diff_pixels: {min_diff_pixels}")
+    #     print(f"captured_cell_path: {captured_cell_path}")
+    #     print(f"best_template_filename: {best_template_filename}")
+    #     return 1 / 0
 
     if best_template_filename is not None:
         imwrite(
             "best_template.png",
             imread(os.path.join(templates_directory, best_template_filename)),
         )
-        return best_template_filename, min_mse
+        return best_template_filename, min_diff_pixels
     else:
         return None, None
 
@@ -174,7 +186,7 @@ def find_best_fit_cells(window_title, cell_size, rule):
                 templates_directory = os.path.join(
                     current_directory, "..", "images", window_title, "W"
                 )
-                best_template_filename, min_mse = find_best_template_filename(
+                best_template_filename, min_diff_pixels = find_best_template_filename(
                     window_title, captured_cell_filename, templates_directory
                 )
                 row_best_fit.append(best_template_filename)
@@ -197,7 +209,7 @@ def find_best_fit_cells(window_title, cell_size, rule):
                 templates_directory = os.path.join(
                     current_directory, "..", "images", window_title, "V"
                 )
-                best_template_filename, min_mse = find_best_template_filename(
+                best_template_filename, min_diff_pixels = find_best_template_filename(
                     window_title, captured_cell_filename, templates_directory
                 )
                 row_best_fit.append(best_template_filename)
@@ -225,6 +237,7 @@ class PuzzleStatus(Enum):
     NEXT = "Next"
     INCOMPLETE = "Incomplete"
     STAR_BROKEN = "Star Broken"
+    WRONG_POPUP = "Wrong Popup"
 
 
 def completed_check(screenshot_path) -> PuzzleStatus:
@@ -255,6 +268,14 @@ def completed_check(screenshot_path) -> PuzzleStatus:
             return PuzzleStatus.NEXT
         if (color_LD == black).all():
             return PuzzleStatus.STAR_BROKEN
+
+        color_LU = screenshot[112, 89]
+        popup_border = (126, 126, 126)
+        color_RD = screenshot[520, 945]
+        popup_inside = (45, 45, 45)
+        if (color_LU == popup_border).all() and (color_RD == popup_inside).all():
+            return PuzzleStatus.WRONG_POPUP
+
         return PuzzleStatus.INCOMPLETE
 
     except Exception as e:

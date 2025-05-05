@@ -21,15 +21,12 @@ from window.rules import (  # get_quad_expanded_regions,; get_triplet_expanded_r
     find_flag_adjacent_cells,
     find_remaining_cells_from_quad,
     find_single_cell_from_triplet,
-    get_expanded_regions_by_rule,
 )
 from window.utils import (
     ExpandedRegion,
     activate_window,
     analyze_regions,
     apply_hints,
-    click_hints,
-    click_hints_twice,
     diff_regions,
     expand_regions,
     find_double_areas,
@@ -46,6 +43,7 @@ from window.utils import (
     analyze_regions_by_rule,
     get_expanded_regions_by_all_rule,
 )
+import time
 
 
 class HeaderFrame(QFrame):
@@ -180,38 +178,49 @@ class MyWindow(QMainWindow):
         activate_window(self.window_title)
 
         while True:
+            time.sleep(0.10)
             capture_window_screenshot(self.window_title)
             best_fit_cells = find_best_fit_cells(
                 self.window_title, self.cell_size, self.rule
             )
             grid = convert_to_numeric(best_fit_cells)
             # if capture_and_stop:
-            #     for row in grid:
-            #         for cell in row:
-            #             print(f"{str(cell).rjust(4)}", end=" ")
-            #         print()
-            #     print(1 / 0)
+            # for row in grid:
+            #     for cell in row:
+            #         print(f"{str(cell).rjust(4)}", end=" ")
+            #     print()
+            # return 1 / 0
             hints = set()
             hint_count = len(hints)
             special_rules = (
                 ("W" in self.rule and not "W'" in self.rule)
+                or ("W'" in self.rule)
                 or ("L" in self.rule)
                 or ("P" in self.rule)
+                or ("M" in self.rule)
+                or ("N" in self.rule)
             )
 
             # 영역 경우의 수 확장, grid region 미포함
             print("searching expanded regions...")
             exregions = []  ## 숫자로부터 나온 exregions가 더 중요하므로 순서변경 금지
             if special_rules:
-                if "W" in self.rule and not "W'" in self.rule:
-                    for region in analyze_regions_by_rule(grid, "W"):
-                        exregions.append(ExpandedRegion.from_wregion(region))
+                rules_to_check = []
+                if "W'" in self.rule:
+                    rules_to_check.append("W'")
+                elif "W" in self.rule:
+                    rules_to_check.append("W")
                 if "L" in self.rule:
-                    for region in analyze_regions_by_rule(grid, "L"):
-                        exregions.append(ExpandedRegion.from_lregion(region))
+                    rules_to_check.append("L")
                 if "P" in self.rule:
-                    for region in analyze_regions_by_rule(grid, "P"):
-                        exregions.append(ExpandedRegion.from_pregion(region))
+                    rules_to_check.append("P")
+                if "M" in self.rule:
+                    rules_to_check.append("M")
+                if "N" in self.rule:
+                    rules_to_check.append("N")
+                for rule in rules_to_check:
+                    for region in analyze_regions_by_rule(grid, rule):
+                        exregions.append(ExpandedRegion.from_rule_region(region, rule))
             else:
                 hint_count = 0
                 while True:
@@ -248,17 +257,24 @@ class MyWindow(QMainWindow):
 
             # 영역 경우의 수 확장, grid region 포함
             print("searching expanded regions including grid...")
-            exregions = []
+            exregions = []  ## 숫자로부터 나온 exregions가 더 중요하므로 순서변경 금지
             if special_rules:
-                if "W" in self.rule and not "W'" in self.rule:
-                    for region in analyze_regions_by_rule(grid, "W"):
-                        exregions.append(ExpandedRegion.from_wregion(region))
+                rules_to_check = []
+                if "W'" in self.rule:
+                    rules_to_check.append("W'")
+                elif "W" in self.rule:
+                    rules_to_check.append("W")
                 if "L" in self.rule:
-                    for region in analyze_regions_by_rule(grid, "L"):
-                        exregions.append(ExpandedRegion.from_lregion(region))
+                    rules_to_check.append("L")
                 if "P" in self.rule:
-                    for region in analyze_regions_by_rule(grid, "P"):
-                        exregions.append(ExpandedRegion.from_pregion(region))
+                    rules_to_check.append("P")
+                if "M" in self.rule:
+                    rules_to_check.append("M")
+                if "N" in self.rule:
+                    rules_to_check.append("N")
+                for rule in rules_to_check:
+                    for region in analyze_regions_by_rule(grid, rule):
+                        exregions.append(ExpandedRegion.from_rule_region(region, rule))
                 regions = [get_grid_region(grid, self.rule)]
                 exregions.extend(expand_regions(regions, grid, self.rule))
             else:
@@ -307,8 +323,8 @@ class MyWindow(QMainWindow):
                 if hints:
                     process_hints(self.window_title, hints, self.cell_size, save_path)
                     continue
-                else:
-                    print("hint not found")
+
+            print("hint not found")
             break
 
     def start_new_process(self):

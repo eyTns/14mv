@@ -26,21 +26,23 @@ class Region(BaseModel):
         )
 
 
-class WRegion(BaseModel):
-    center: tuple[int, int]
-    mines_component: list[int]
-    pre_filled_mines: list[tuple[int, int]]
-    pre_filled_numbers: list[tuple[int, int]]
-
-
-class LRegion(BaseModel):
+class RuleRegion(BaseModel):
     center: tuple[int, int]
     number: int
     pre_filled_mines: list[tuple[int, int]]
     pre_filled_numbers: list[tuple[int, int]]
 
 
-PRegion = LRegion
+LRegion = RuleRegion
+
+PRegion = RuleRegion
+
+MRegion = RuleRegion
+
+NRegion = RuleRegion
+
+WprimeRegion = RuleRegion
+WRegion = RuleRegion
 
 
 class ExpandedRegion(BaseModel):
@@ -115,23 +117,66 @@ class ExpandedRegion(BaseModel):
         return cls(blank_cells=blank_cells, cases=cases)
 
     @classmethod
+    def from_rule_region(cls, region, rule) -> "ExpandedRegion":
+        if rule == "W":
+            return cls.from_wregion(region)
+        elif rule == "W'":
+            return cls.from_wprimeregion(region)
+        elif rule == "L":
+            return cls.from_lregion(region)
+        elif rule == "P":
+            return cls.from_pregion(region)
+        elif rule == "M":
+            return cls.from_mregion(region)
+        elif rule == "N":
+            return cls.from_nregion(region)
+        else:
+            raise ValueError(f"Invalid rule: {rule}")
+
+    @classmethod
     def from_wregion(cls, wregion: WRegion) -> "ExpandedRegion":
         blank_cells, surrounding_cells = cls._prepare_blank_cells(
             wregion.center, wregion.pre_filled_mines, wregion.pre_filled_numbers
         )
         valid_cases = []
         pre_filled_mines_set = set(wregion.pre_filled_mines)
-        sorted_mines_component = sorted(wregion.mines_component)
+        if wregion.number == 0:
+            mines_component = []
+        else:
+            mines_component = [int(digit) for digit in str(wregion.number)]
 
         for case_bits in range(1 << len(blank_cells)):
             current_mines = pre_filled_mines_set.copy()
             current_mines.update(
                 blank_cells[i] for i in range(len(blank_cells)) if case_bits & (1 << i)
             )
-            if (
-                get_mines_component(surrounding_cells, current_mines)
-                == sorted_mines_component
+            if get_mines_component(surrounding_cells, current_mines) == sorted(
+                mines_component
             ):
+                valid_cases.append(case_bits)
+
+        return cls(blank_cells=blank_cells, cases=valid_cases)
+
+    @classmethod
+    def from_wprimeregion(cls, wprimeregion: WprimeRegion) -> "ExpandedRegion":
+        blank_cells, surrounding_cells = cls._prepare_blank_cells(
+            wprimeregion.center,
+            wprimeregion.pre_filled_mines,
+            wprimeregion.pre_filled_numbers,
+        )
+        valid_cases = []
+        pre_filled_mines_set = set(wprimeregion.pre_filled_mines)
+        target_number = wprimeregion.number
+
+        for case_bits in range(1 << len(blank_cells)):
+            current_mines = pre_filled_mines_set.copy()
+            current_mines.update(
+                blank_cells[i] for i in range(len(blank_cells)) if case_bits & (1 << i)
+            )
+            mines_component = get_mines_component(surrounding_cells, current_mines)
+            if mines_component and max(mines_component) == target_number:
+                valid_cases.append(case_bits)
+            if not mines_component and target_number == 0:
                 valid_cases.append(case_bits)
 
         return cls(blank_cells=blank_cells, cases=valid_cases)
@@ -170,6 +215,64 @@ class ExpandedRegion(BaseModel):
                 len(get_mines_component(surrounding_cells, current_mines))
                 == target_number
             ):
+                valid_cases.append(case_bits)
+
+        return cls(blank_cells=blank_cells, cases=valid_cases)
+
+    @classmethod
+    def from_mregion(cls, mregion: MRegion) -> "ExpandedRegion":
+        blank_cells, surrounding_cells = cls._prepare_blank_cells(
+            mregion.center, mregion.pre_filled_mines, mregion.pre_filled_numbers
+        )
+        valid_cases = []
+        pre_filled_mines_set = set(mregion.pre_filled_mines)
+        target_number = mregion.number
+
+        def get_effective_mines(mines):
+            effective_count = 0
+            for mine in mines:
+                r, c = mine
+                if (r + c) % 2 == 1:  ## colored
+                    effective_count += 2
+                else:
+                    effective_count += 1
+            return effective_count
+
+        for case_bits in range(1 << len(blank_cells)):
+            current_mines = pre_filled_mines_set.copy()
+            current_mines.update(
+                blank_cells[i] for i in range(len(blank_cells)) if case_bits & (1 << i)
+            )
+            if get_effective_mines(current_mines) == target_number:
+                valid_cases.append(case_bits)
+
+        return cls(blank_cells=blank_cells, cases=valid_cases)
+
+    @classmethod
+    def from_nregion(cls, nregion: NRegion) -> "ExpandedRegion":
+        blank_cells, surrounding_cells = cls._prepare_blank_cells(
+            nregion.center, nregion.pre_filled_mines, nregion.pre_filled_numbers
+        )
+        valid_cases = []
+        pre_filled_mines_set = set(nregion.pre_filled_mines)
+        target_number = nregion.number
+
+        def get_effective_mines(mines):
+            effective_count = 0
+            for mine in mines:
+                r, c = mine
+                if (r + c) % 2 == 1:  ## colored
+                    effective_count += 1
+                else:
+                    effective_count -= 1
+            return effective_count
+
+        for case_bits in range(1 << len(blank_cells)):
+            current_mines = pre_filled_mines_set.copy()
+            current_mines.update(
+                blank_cells[i] for i in range(len(blank_cells)) if case_bits & (1 << i)
+            )
+            if abs(get_effective_mines(current_mines)) == target_number:
                 valid_cases.append(case_bits)
 
         return cls(blank_cells=blank_cells, cases=valid_cases)
