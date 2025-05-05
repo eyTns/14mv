@@ -48,6 +48,8 @@ class ExpandedRegion(BaseModel):
     cases: list[int]
 
     def __init__(self, blank_cells: list[tuple[int, int]], cases: list[int]):
+        # blank_cells.sort() ## cases의 값이 바뀌므로 금지. 중복 제거를 위해 미리 정렬된 상태로 들어와야 함
+        cases.sort()
         super().__init__(blank_cells=blank_cells, cases=cases)
 
     def __eq__(self, other: "ExpandedRegion") -> bool:
@@ -57,11 +59,6 @@ class ExpandedRegion(BaseModel):
                 set(self.cases) == set(other.cases),
             ]
         )
-
-    def __hash__(self) -> int:
-        blank_cells_tuple = tuple(sorted(self.blank_cells))
-        cases_tuple = tuple(sorted(self.cases))
-        return hash((blank_cells_tuple, cases_tuple))
 
     @property
     def case_count(self) -> int:

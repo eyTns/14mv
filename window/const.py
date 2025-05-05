@@ -1,8 +1,8 @@
 ## not fixed
 # MAX_CASES = 10000  ## easy puzzles, fast
 # MAX_CASES = 30000  ## medium puzzles
-MAX_CASES = 90000  ## hard puzzles (works on most of size 5 puzzles)
-# MAX_CASES = 650000  ## very hard case (works up to 22 choose 10 = 646646)
+# MAX_CASES = 90000  ## hard puzzles (works on most of size 5 puzzles)
+MAX_CASES = 650000  ## very hard case (works up to 22 choose 10 = 646646)
 
 
 TOTAL_MINES = {

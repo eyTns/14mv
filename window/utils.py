@@ -454,8 +454,8 @@ def diff_regions(regions: list[Region]):
             return regions
 
 
-def expand_regions(regions: list[Region], grid, rule) -> set[ExpandedRegion]:
-    expanded_regions = set()
+def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
+    expanded_regions = []
     for region in regions:
         blank_cells = list(region.blank_cells)
         combinations_count = comb(len(blank_cells), region.mines_needed)
@@ -486,8 +486,8 @@ def expand_regions(regions: list[Region], grid, rule) -> set[ExpandedRegion]:
                 if not is_valid_case_for_rule(applied_grid, RULE_U):
                     continue
             if "D" in rule and "D'" not in rule:
-                if not is_valid_case_for_rule(applied_grid, RULE_D1):
-                    continue
+                # if not is_valid_case_for_rule(applied_grid, RULE_D1):
+                #     continue
                 if not is_valid_case_for_rule(applied_grid, RULE_D2):
                     continue
                 if not is_valid_case_for_rule(applied_grid, RULE_D3):
@@ -499,7 +499,7 @@ def expand_regions(regions: list[Region], grid, rule) -> set[ExpandedRegion]:
         expanded_region = ExpandedRegion.from_mine_combinations(
             blank_cells, valid_mine_combinations
         )
-        expanded_regions.add(expanded_region)
+        expanded_regions.append(expanded_region)
 
     return expanded_regions
 
@@ -556,13 +556,6 @@ def extract_hints(
 
 
 def merge_expanded_regions(r1: ExpandedRegion, r2: ExpandedRegion) -> ExpandedRegion:
-    """
-    두 ExpandedRegion을 병합하여 새로운 ExpandedRegion 생성
-    충돌하는 셀(같은 위치에 다른 지뢰 상태)이 있는 조합은 제외
-
-    Returns:
-        ExpandedRegion: 병합된 새로운 region
-    """
     all_cells = list(set(r1.blank_cells) | set(r2.blank_cells))
     all_cells.sort()
     r1_cell_indices = {}
@@ -613,60 +606,60 @@ def apply_filter_for_all_rules(
     if "U" in rule:
         region = filter_cases_by_rule(region, grid, RULE_U)
     if "D" in rule:
-        region = filter_cases_by_rule(region, grid, RULE_D1)
+        # region = filter_cases_by_rule(region, grid, RULE_D1)
         region = filter_cases_by_rule(region, grid, RULE_D2)
         region = filter_cases_by_rule(region, grid, RULE_D3)
     return region
 
 
 def get_expanded_regions_by_all_rule(grid, rule):
-    exregions = set()
+    exregions = []
     if "Q" in rule:
-        exregions.update(get_expanded_regions_by_rule(grid, RULE_Q))
+        exregions.extend(get_expanded_regions_by_rule(grid, RULE_Q))
     if "T" in rule:
-        exregions.update(get_expanded_regions_by_rule(grid, RULE_T))
+        exregions.extend(get_expanded_regions_by_rule(grid, RULE_T))
     if "A" in rule:
-        exregions.update(get_expanded_regions_by_rule(grid, RULE_A))
+        exregions.extend(get_expanded_regions_by_rule(grid, RULE_A))
     if "H" in rule:
-        exregions.update(get_expanded_regions_by_rule(grid, RULE_H))
+        exregions.extend(get_expanded_regions_by_rule(grid, RULE_H))
     if "U" in rule:
-        exregions.update(get_expanded_regions_by_rule(grid, RULE_U))
+        exregions.extend(get_expanded_regions_by_rule(grid, RULE_U))
     if "D" in rule and "D'" not in rule:
-        # print(len(exregions))
-        exregions.update(get_expanded_regions_by_rule(grid, RULE_D1))
-        # print(len(exregions))
-        exregions.update(get_expanded_regions_by_rule(grid, RULE_D2))
-        # print(len(exregions))
-        exregions.update(get_expanded_regions_by_rule(grid, RULE_D3))
-        # print(len(exregions))
-        # print(1 / 0)
+        # exregions.extend(get_expanded_regions_by_rule(grid, RULE_D1))
+        exregions.extend(get_expanded_regions_by_rule(grid, RULE_D2))
+        exregions.extend(get_expanded_regions_by_rule(grid, RULE_D3))
     return exregions
 
 
 def solve_with_expanded_regions(
-    exregions: set[ExpandedRegion], grid: list[list[int]], rule: str
+    exregions: list[ExpandedRegion], grid: list[list[int]], rule: str
 ) -> set[tuple[str, tuple[int, int]]]:
     hints = set()
 
     reduced_regions = []
     for exregion in exregions:
+        # print(exregion)
         exregion = apply_filter_for_all_rules(exregion, grid, rule)
         new_hints, reduced = extract_hints(exregion)
         if new_hints:
-            # print("reduced", new_hints, exregion, reduced)
-            # return new_hints
             hints.update(new_hints)
-        if reduced:
+        if (
+            reduced
+            and reduced not in reduced_regions
+            and 2 ** len(reduced.blank_cells) > reduced.case_count
+        ):
             reduced_regions.append(reduced)
-    exregions = list(set(reduced_regions))
-    start_time = time.time()
+        # print(reduced)
+        # print()
+    exregions = reduced_regions
 
+    start_time = time.time()
     while len(exregions) > 1:
-        print(f"{len(exregions)}", end=" / ")
-        # print(f"{len(exregions)} / ")
-        exregions.sort(key=lambda r: len(r.cases))
+        print(f"{len(exregions)} Regions", end=" / ")
+        exregions.sort(key=lambda r: r.case_count)
         r1 = exregions.pop(0)
-        # print(r1, end=" / ")
+        # print(r1.case_count, exregions[-1].case_count, end=" / ")
+        # print(r1)
 
         subset_region = 0
         min_cases = float("inf")
@@ -684,37 +677,31 @@ def solve_with_expanded_regions(
             merged = apply_filter_for_all_rules(merged, grid, rule)
             new_hints, reduced = extract_hints(merged)
             if new_hints:
-                # print("merged", new_hints, merged, reduced)
-                # return new_hints
                 hints.update(new_hints)
-            if time.time() - start_time > 1 and hints:
+            if time.time() - start_time > 0.5 and hints:
                 return hints
-            if is_subset and reduced:
+            if is_subset:
                 subset_region += 1
-                exregions[i] = reduced
+                if reduced:
+                    exregions[i] = reduced
+                else:
+                    break
             elif not is_subset and reduced and 1 < len(reduced.cases) <= MAX_CASES:
                 if len(reduced.cases) < min_cases:
                     min_cases = len(reduced.cases)
                     best_reduced = reduced
                     best_partner_idx = i
         if subset_region > 0:
-            print(f"subset case exist for r1 - {subset_region} cases")
+            print(f"r1 is subset of {subset_region} regions - {r1}")
+            # print(exregions[i])
             continue
-        if time.time() - start_time > 1 and hints:
+        if time.time() - start_time > 0.5 and hints:
             return hints
         if best_partner_idx is not None:
-            # print(f"Merging:")
-            # print(f"R1 - {r1.blank_cells} /// {r1.case_count} {r1.cases[:20]}")
-            # print(
-            #     f"R2 - {exregions_list[best_partner_idx].blank_cells} /// {exregions_list[best_partner_idx].case_count} {exregions[best_partner_idx].cases[:20]}"
-            # )
-            # print(
-            #     f"R3 - {best_reduced.blank_cells} /// {best_reduced.case_count} {best_reduced.cases[:20]}"
-            # )
             exregions.pop(best_partner_idx)
             if best_reduced and len(best_reduced.cases) <= MAX_CASES:
                 exregions.append(best_reduced)
-            print(f"{len(r1.cases)} -> {min_cases}")
+            print(f"Merging: {len(r1.cases)} -> {min_cases}")
 
     if exregions:
         final_hints, _ = extract_hints(exregions[0])

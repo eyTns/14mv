@@ -40,11 +40,17 @@ def is_valid_case_for_rule(
                     if all(cell not in [-1, -2] for cell in cells):
                         return False
                 elif pattern_condition == "no_center_mine_only":
-                    if cells[0] == SPECIAL_CELLS["flag"] and all(
-                        cell not in [SPECIAL_CELLS["flag"], SPECIAL_CELLS["blank"]]
-                        for cell in cells[1:]
-                    ):
-                        return False
+                    if cells[0] == SPECIAL_CELLS["flag"]:
+                        if all(
+                            cell not in [SPECIAL_CELLS["flag"], SPECIAL_CELLS["blank"]]
+                            for cell in cells[1:]
+                        ):
+                            return False
+                        flag_count = sum(
+                            1 for cell in cells[1:] if cell == SPECIAL_CELLS["flag"]
+                        )
+                        if flag_count >= 2:
+                            return False
 
     return True
 
@@ -177,79 +183,75 @@ def get_expanded_regions_by_rule(grid, rule) -> list[ExpandedRegion]:
                         pattern_cells.append((new_row, new_col))
                     else:
                         valid = False
-                if not valid and pattern_condition != "no_center_mine_only":
-                    continue
 
                 blank_cells = []
-                condition_met = False
+                num_blanks = 0
                 existing_mines = 0
+                existing_numbers = 0
+
                 if pattern_condition == "no_center_mine_only":
                     center_cell = pattern_cells[0]
+                    other_cells = pattern_cells[1:]
+                else:
+                    if not valid:
+                        continue
 
                 for r, c in pattern_cells:
-                    if pattern_condition == "no_center_mine_only":
-                        is_center = (r, c) == center_cell
                     cell_value = grid[r][c]
                     if cell_value == SPECIAL_CELLS["blank"]:
                         blank_cells.append((r, c))
+                        num_blanks += 1
                     elif cell_value == SPECIAL_CELLS["flag"]:
                         existing_mines += 1
-                        if pattern_condition == "no_all_numbers":
-                            condition_met = True
-                        elif (
-                            pattern_condition == "no_center_mine_only" and not is_center
-                        ):
-                            condition_met = True
-                    elif pattern_condition == "no_all_mines":
-                        condition_met = True
-                    elif pattern_condition == "no_center_mine_only" and is_center:
-                        condition_met = True
-                if condition_met or not blank_cells:
-                    continue
-                if pattern_condition == "max_two_mines" and existing_mines > 2:
-                    continue
+                    else:
+                        existing_numbers += 1
+                blank_cells.sort()
 
-                num_blanks = len(blank_cells)
                 cases = []
-
-                if pattern_condition == "no_all_numbers":
+                if not blank_cells:
+                    continue
+                elif pattern_condition == "no_all_numbers":
+                    if existing_mines > 0:
+                        continue
                     cases = list(range(1, 2**num_blanks))
                 elif pattern_condition == "no_all_mines":
+                    if existing_numbers > 0:
+                        continue
                     cases = list(range(2**num_blanks - 1))
                 elif pattern_condition == "max_two_mines":
+                    if existing_mines > 2:
+                        continue
                     max_additional_mines = 2 - existing_mines
                     for case in range(2**num_blanks):
                         if bin(case).count("1") <= max_additional_mines:
                             cases.append(case)
                 elif pattern_condition == "no_center_mine_only":
-                    if center_cell in blank_cells:
-                        center_index = blank_cells.index(center_cell)
-                        for case in range(2**num_blanks):
-                            if (
-                                case == (1 << center_index)
-                                and bin(case).count("1") == 1
-                            ):
-                                continue
+                    center_r, center_c = center_cell
+                    # print(f"*** {center_cell} ******************")
+                    if grid[center_r][center_c] not in [-1, -2]:
+                        continue
+                    for case in range(2**num_blanks):
+                        if center_cell in blank_cells:
+                            center_index = blank_cells.index(center_cell)
+                            is_center_mine = (case & (1 << center_index)) != 0
+                            other_mines_count = existing_mines
+                            for i in range(num_blanks):
+                                if i != center_index and (case & (1 << i)) != 0:
+                                    other_mines_count += 1
+                        else:
+                            is_center_mine = (
+                                grid[center_r][center_c] == SPECIAL_CELLS["flag"]
+                            )
+                            other_mines_count = existing_mines - int(is_center_mine)
+                            other_mines_count += bin(case).count("1")
+                        if not is_center_mine:
                             cases.append(case)
-                    else:
-                        cases = list(range(1, 2**num_blanks))
+                        elif other_mines_count == 1:
+                            cases.append(case)
+                    # print(is_center_mine, other_mines_count)
+                    # print(blank_cells, cases)
 
                 if cases:
                     expanded_regions.append(ExpandedRegion(blank_cells, cases))
 
     return expanded_regions
-
-
-# def get_quad_expanded_regions(grid) -> list:
-#     """Rule Q: 모든 쿼드에는 지뢰가 1개 이상 있다"""
-#     return get_expanded_regions_by_rule(grid, RULE_Q)
-
-
-# def get_triplet_expanded_regions(grid) -> list:
-#     """Rule T: 모든 연속된 3개의 셀에는 숫자가 1개 이상 있다"""
-#     return get_expanded_regions_by_rule(grid, RULE_T)
-
-
-# def get_single_expanded_regions(grid) -> list:
-#     """Rule U: 모든 연속된 2개의 셀에는 숫자가 1개 이상 있다"""
-#     return get_expanded_regions_by_rule(grid, RULE_U)
