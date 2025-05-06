@@ -665,7 +665,8 @@ def solve_with_expanded_regions(
             if new_hints:
                 hints.update(new_hints)
             if time.time() - start_time > 0.5 and hints:
-                return hints
+                break
+                # return hints
             if is_subset:
                 subset_region += 1
                 if reduced:
@@ -691,6 +692,15 @@ def solve_with_expanded_regions(
                 exregions.append(best_reduced)
             if logging_this:
                 print(f"Merging: {len(r1.cases)} -> {min_cases}")
+        if time.time() - start_time < 0.5 and hints:
+            for i in range(len(exregions)):
+                new_exregion = apply_hints_to_exregion(exregions[i], hints)
+                if new_exregion != exregions[i]:
+                    if logging_this:
+                        print(
+                            f"Hint applied: {exregions[i].case_count} -> {new_exregion.case_count}"
+                        )
+                    exregions[i] = new_exregion
 
     if exregions:
         final_hints, _ = extract_hints(exregions[0])
@@ -699,19 +709,17 @@ def solve_with_expanded_regions(
     return hints
 
 
-def apply_hints_to_region(
-    region: ExpandedRegion, hints: set[tuple[str, tuple[int, int]]]
+def apply_hints_to_exregion(
+    exregion: ExpandedRegion, hints: set[tuple[str, tuple[int, int]]]
 ) -> ExpandedRegion | None:
-    """
-    주어진 힌트들을 region에 적용하여 cases를 필터링
-    """
+    """주어진 힌트들을 exregion에 적용하여 cases를 필터링"""
     filtered_cases = []
 
-    for case in region.cases:
+    for case in exregion.cases:
         valid = True
         for hint_type, cell in hints:
-            if cell in region.blank_cells:
-                idx = region.blank_cells.index(cell)
+            if cell in exregion.blank_cells:
+                idx = exregion.blank_cells.index(cell)
                 has_mine = bool(case & (1 << idx))
                 if (hint_type == "mine" and not has_mine) or (
                     hint_type == "safe" and has_mine
@@ -722,9 +730,10 @@ def apply_hints_to_region(
             filtered_cases.append(case)
 
     if not filtered_cases:
+        print("이런 경우는 없을듯?")
         return None
 
-    return ExpandedRegion(blank_cells=region.blank_cells, cases=filtered_cases)
+    return ExpandedRegion(blank_cells=exregion.blank_cells, cases=filtered_cases)
 
 
 def apply_hints(grid: list[list[int]], hints):
@@ -852,7 +861,7 @@ def skip_level(window_title):
 
 
 def process_hints(window_title, hints, size, save_path):
-    print(f"{len(hints)} hints found")
+    # print(f"{len(hints)} hints found")
     # click_hints(self.window_title, hints, self.cell_size)
     click_hints_twice(window_title, hints, size)
     next_level_check(window_title, save_path)

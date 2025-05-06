@@ -48,6 +48,8 @@ from window.utils import (
 )
 import time
 
+from window.operate_utils import PuzzleVariant
+
 
 class HeaderFrame(QFrame):
     def __init__(self, parent=None):
@@ -143,28 +145,68 @@ class MyWindow(QMainWindow):
         self.iterate_forever = conf["iterate_forever"]
         self.cell_size = detect_cell_size(self.window_title)
 
-        # order_5678 = [  # N
-        #     (550, 277, "left"),
-        #     (600, 277, "left"),
-        #     (640, 277, "left"),
-        #     (680, 277, "left"),
-        # ]
-        # order_5678 = [  # W, 6785
-        #     (600, 238, "left"),
-        #     (640, 238, "left"),
-        #     (680, 238, "left"),
-        #     (550, 238, "left"),
-        # ]
-        order_5678 = [  # P
-            [(920, 160, "left"), (680, 360, "left")],  # 8
-            [(920, 200, "left"), (550, 360, "left")],  # 5!
-            [(920, 200, "left"), (600, 360, "left")],  # 6!
-            [(920, 200, "left"), (640, 360, "left")],  # 7!
-            [(920, 200, "left"), (680, 360, "left")],  # 8!
-            [(960, 200, "left"), (550, 360, "left")],  # 5!!
-            [(960, 200, "left"), (600, 360, "left")],  # 6!!
-            [(960, 200, "left"), (640, 360, "left")],  # 7!!
-            [(960, 200, "left"), (680, 360, "left")],  # 8!!
+        variant_strings = [
+            "T 5",
+            "T 6",
+            "T 7",
+            "T 8",
+            "T 5!",
+            "T 6!",
+            "T 7!",
+            "T 8!",
+            "T 5!!",
+            "T 6!!",
+            "T 7!!",
+            "T 8!!",
+            "TM 5",
+            "TM 6",
+            "TM 7",
+            "TM 8",
+            "TM 5!",
+            "TL 5",
+            "TL 6",
+            "TL 7",
+            "TL 8",
+            "TL 5!",
+            "TW 5",
+            "TW 6",
+            "TW 7",
+            "TW 8",
+            "TW 5!",
+            "TN 5",
+            "TN 6",
+            "TN 7",
+            "TN 8",
+            "TN 5!",
+            "TX 5",
+            "TX 6",
+            "TX 7",
+            "TX 8",
+            "TX 5!",
+            "TP 5",
+            "TP 6",
+            "TP 7",
+            "TP 8",
+            "TP 5!",
+            "TX' 5",
+            "TX' 6",
+            "TX' 7",
+            "TX' 8",
+            "TX' 5!",
+            "TK 5",
+            "TK 6",
+            "TK 7",
+            "TK 8",
+            "TK 5!",
+            "TW' 5",
+            "TW' 6",
+            "TW' 7",
+            "TW' 8",
+            "TW' 5!",
+        ]
+
+        self.variants_to_iterate = [
+            PuzzleVariant.from_string(vs) for vs in variant_strings
         ]
 
         if self.iterate_forever:
@@ -180,10 +222,12 @@ class MyWindow(QMainWindow):
                     if all_solved_check(self.window_title):
                         break
                 print("moving to other size")
-                to_click = order_5678[0]
-                order_5678 = order_5678[1:] + [to_click]
+                next_variant = self.variants_to_iterate.pop(0)
+                to_click = next_variant.get_menu_coordinates()
                 switch_to_other_size(self.window_title, to_click)
+                self.variants_to_iterate.append(next_variant)
                 self.cell_size = detect_cell_size(self.window_title)
+                self.rule = next_variant.rule
         else:
             self.process_game_data()
 
@@ -246,7 +290,7 @@ class MyWindow(QMainWindow):
             )
 
             # 영역 경우의 수 확장, grid region 미포함
-            print("searching expanded regions...")
+            # print("searching expanded regions...")
             exregions = []  ## 숫자로부터 나온 exregions가 더 중요하므로 순서변경 금지
             if special_rules:
                 rules_to_check = []
