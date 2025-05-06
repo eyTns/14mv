@@ -16,6 +16,8 @@ from window.image_utils import (
     convert_to_numeric,
     detect_cell_size,
     find_best_fit_cells,
+    all_solved_check,
+    PuzzleStatus,
 )
 from window.rules import (  # get_quad_expanded_regions,; get_triplet_expanded_regions,; get_single_expanded_regions,
     find_flag_adjacent_cells,
@@ -42,6 +44,7 @@ from window.utils import (
     process_hints,
     analyze_regions_by_rule,
     get_expanded_regions_by_all_rule,
+    switch_to_other_size,
 )
 import time
 
@@ -140,13 +143,49 @@ class MyWindow(QMainWindow):
         self.iterate_forever = conf["iterate_forever"]
         self.cell_size = detect_cell_size(self.window_title)
 
+        # order_5678 = [  # N
+        #     (550, 277, "left"),
+        #     (600, 277, "left"),
+        #     (640, 277, "left"),
+        #     (680, 277, "left"),
+        # ]
+        # order_5678 = [  # W, 6785
+        #     (600, 238, "left"),
+        #     (640, 238, "left"),
+        #     (680, 238, "left"),
+        #     (550, 238, "left"),
+        # ]
+        order_5678 = [  # P
+            [(920, 160, "left"), (680, 360, "left")],  # 8
+            [(920, 200, "left"), (550, 360, "left")],  # 5!
+            [(920, 200, "left"), (600, 360, "left")],  # 6!
+            [(920, 200, "left"), (640, 360, "left")],  # 7!
+            [(920, 200, "left"), (680, 360, "left")],  # 8!
+            [(960, 200, "left"), (550, 360, "left")],  # 5!!
+            [(960, 200, "left"), (600, 360, "left")],  # 6!!
+            [(960, 200, "left"), (640, 360, "left")],  # 7!!
+            [(960, 200, "left"), (680, 360, "left")],  # 8!!
+        ]
+
         if self.iterate_forever:
             while True:
-                self.process_game_data()
-                print("skipping level")
-                skip_level(self.window_title)
-
-        self.process_game_data()
+                self.skipped_levels = 0
+                while True:
+                    self.process_game_data()
+                    print("skipping level")
+                    skip_level(self.window_title)
+                    self.skipped_levels += 1
+                    if self.skipped_levels >= 10:
+                        break
+                    if all_solved_check(self.window_title):
+                        break
+                print("moving to other size")
+                to_click = order_5678[0]
+                order_5678 = order_5678[1:] + [to_click]
+                switch_to_other_size(self.window_title, to_click)
+                self.cell_size = detect_cell_size(self.window_title)
+        else:
+            self.process_game_data()
 
         self.setWindowTitle("14mv solve")
         self.setup_ui()
@@ -178,7 +217,13 @@ class MyWindow(QMainWindow):
         activate_window(self.window_title)
 
         while True:
-            time.sleep(0.10)
+            if all_solved_check(self.window_title):
+                break
+            status = next_level_check(self.window_title, save_path)
+            if status == PuzzleStatus.ALREADY_SOLVED:
+                print("skipping level")
+                self.skipped_levels += 1
+                break
             capture_window_screenshot(self.window_title)
             best_fit_cells = find_best_fit_cells(
                 self.window_title, self.cell_size, self.rule
@@ -191,7 +236,6 @@ class MyWindow(QMainWindow):
             #     print()
             # return 1 / 0
             hints = set()
-            hint_count = len(hints)
             special_rules = (
                 ("W" in self.rule and not "W'" in self.rule)
                 or ("W'" in self.rule)
@@ -250,9 +294,15 @@ class MyWindow(QMainWindow):
                 exregions.extend(get_expanded_regions_by_all_rule(grid, self.rule))
 
             hints = solve_with_expanded_regions(exregions, grid, self.rule)
+
+            # 임시
+            if self.rule == "UW":
+                hints.update(find_flag_adjacent_cells(grid))
+
             if hints:
-                print(hints)
+                # print(hints)
                 process_hints(self.window_title, hints, self.cell_size, save_path)
+                # break  ## 임시
                 continue
 
             # 영역 경우의 수 확장, grid region 포함

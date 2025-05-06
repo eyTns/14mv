@@ -63,8 +63,8 @@ def get_neighboring_cells_with_indices(row, col, grid):
 def get_total_mines(rule, cell_size):
     if rule[0] == "B":
         return TOTAL_MINES["B"][cell_size - 5]
-    elif rule[0] in "DAH":
-        return TOTAL_MINES["DAH"][cell_size - 5]
+    elif rule[0] in "DAHU":
+        return TOTAL_MINES["DAHU"][cell_size - 5]
     else:
         return TOTAL_MINES["STANDARD"][cell_size - 5]
 
@@ -496,14 +496,8 @@ def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
 def extract_hints(
     region: ExpandedRegion,
 ) -> tuple[set[tuple[str, tuple[int, int]]], ExpandedRegion]:
-    """
-    ExpandedRegion에서 확실한 힌트들을 추출하고, 남은 불확실한 셀들의 ExpandedRegion을 반환
-
-    Returns:
-        tuple[set[hints], ExpandedRegion]:
-            - hints: ("mine" or "safe", (row, col)) 형태의 힌트들
-            - 불확실한 셀들만 남은 새로운 ExpandedRegion
-    """
+    if not region:
+        return set(), None
     hints = set()
     uncertain_cells = []
     uncertain_cell_indices = []
@@ -623,6 +617,8 @@ def get_expanded_regions_by_all_rule(grid, rule):
 def solve_with_expanded_regions(
     exregions: list[ExpandedRegion], grid: list[list[int]], rule: str
 ) -> set[tuple[str, tuple[int, int]]]:
+    logging_this = False
+
     hints = set()
 
     reduced_regions = []
@@ -644,7 +640,8 @@ def solve_with_expanded_regions(
 
     start_time = time.time()
     while len(exregions) > 1:
-        print(f"{len(exregions)} Regions", end=" / ")
+        if logging_this:
+            print(f"{len(exregions)} Regions", end=" / ")
         exregions.sort(key=lambda r: r.case_count)
         r1 = exregions.pop(0)
         # print(r1.case_count, exregions[-1].case_count, end=" / ")
@@ -681,8 +678,10 @@ def solve_with_expanded_regions(
                     best_reduced = reduced
                     best_partner_idx = i
         if subset_region > 0:
-            print(f"r1 is subset of {subset_region} regions - {r1}")
-            # print(exregions[i])
+            if logging_this:
+                # print(f"r1 is subset of {subset_region} regions - {r1}")
+                print(f"r1 is subset of {subset_region} regions")
+                # print(exregions[i])
             continue
         if time.time() - start_time > 0.5 and hints:
             return hints
@@ -690,7 +689,8 @@ def solve_with_expanded_regions(
             exregions.pop(best_partner_idx)
             if best_reduced and len(best_reduced.cases) <= MAX_CASES:
                 exregions.append(best_reduced)
-            print(f"Merging: {len(r1.cases)} -> {min_cases}")
+            if logging_this:
+                print(f"Merging: {len(r1.cases)} -> {min_cases}")
 
     if exregions:
         final_hints, _ = extract_hints(exregions[0])
@@ -756,7 +756,6 @@ def location_to_cell_coordinates(window_title, location, size):
 def activate_window(window_title):
     target_window = gw.getWindowsWithTitle(window_title)[0]
     target_window.activate()
-    time.sleep(0.2)
     return True
 
 
@@ -830,12 +829,20 @@ def next_level_check(window_title, save_path):
     if status == PuzzleStatus.FINISH:
         input_spacebar(window_title)
         click_positions(window_title, [CLICK_COORDINATES["next_level"]])
+        time.sleep(0.3)
     elif status == PuzzleStatus.NEXT:
         click_positions(window_title, [CLICK_COORDINATES["next_level"]])
+        time.sleep(0.3)
     elif status == PuzzleStatus.STAR_BROKEN:
         skip_level(window_title)
+        time.sleep(0.3)
     elif status == PuzzleStatus.WRONG_POPUP:
         click_positions(window_title, [CLICK_COORDINATES["close_popup"]])
+        time.sleep(0.3)
+    elif status == PuzzleStatus.ALREADY_SOLVED:
+        click_positions(window_title, [CLICK_COORDINATES["skip_button"]])
+        time.sleep(0.3)
+    return status
 
 
 def skip_level(window_title):
@@ -849,3 +856,20 @@ def process_hints(window_title, hints, size, save_path):
     # click_hints(self.window_title, hints, self.cell_size)
     click_hints_twice(window_title, hints, size)
     next_level_check(window_title, save_path)
+
+
+def switch_to_other_size(window_title, click):
+    time.sleep(0.5)
+    click_positions(window_title, [(985, 75, "left")])
+    time.sleep(0.5)
+    click_positions(window_title, [(750, 494, "left")])
+    time.sleep(0.5)
+    if isinstance(click, tuple):
+        click_positions(window_title, [click])
+    elif isinstance(click, list):
+        click_positions(window_title, click)
+    else:
+        raise TypeError("clicks should be tuple or list of tuples")
+    time.sleep(0.5)
+    click_positions(window_title, [(864, 484, "left")])
+    time.sleep(0.5)

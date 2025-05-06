@@ -1,14 +1,16 @@
 ## not fixed
 # MAX_CASES = 10000  ## easy puzzles, fast
 # MAX_CASES = 30000  ## medium puzzles
-# MAX_CASES = 90000  ## hard puzzles (works on most of size 5 puzzles)
-MAX_CASES = 650000  ## very hard case (works up to 22 choose 10 = 646646)
+# MAX_CASES = 90000  ## hard puzzles
+MAX_CASES = 300000  ## harder puzzles
+# MAX_CASES = 650000  ## very hard case (works up to 22 choose 10 = 646646)
+# MAX_CASES = 1100000  ## very hard case (works up to 25 choose 17 = 1081575)
 
 
 TOTAL_MINES = {
     "STANDARD": [10, 14, 20, 26],
     "B": [10, 12, 21, 24],
-    "DAH": [8, 10, 14, 20],
+    "DAHU": [8, 10, 14, 20],
 }
 
 

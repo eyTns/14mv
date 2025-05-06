@@ -141,13 +141,19 @@ def count_different_pixels(image_path_1, image_path_2):
 
 def find_best_template_filename(window_title, captured_cell_path, templates_directory):
     best_template_filename = None
-    min_diff_pixels = float("inf")
+    min_measure = float("inf")
     for template_filename in os.listdir(templates_directory):
         template_path = os.path.join(templates_directory, template_filename)
         diff_pixels = count_different_pixels(captured_cell_path, template_path)
-        if diff_pixels < min_diff_pixels:
-            min_diff_pixels = diff_pixels
+        if diff_pixels < min_measure:
+            min_measure = diff_pixels
             best_template_filename = template_filename
+            if diff_pixels == 0:
+                break
+        # mse = MSE_of_images(captured_cell_path, template_path)
+        # if mse < min_measure:
+        #     min_measure = mse
+        #     best_template_filename = template_filename
 
     # if min_diff_pixels > 0:
     #     print(f"min_diff_pixels: {min_diff_pixels}")
@@ -160,7 +166,7 @@ def find_best_template_filename(window_title, captured_cell_path, templates_dire
             "best_template.png",
             imread(os.path.join(templates_directory, best_template_filename)),
         )
-        return best_template_filename, min_diff_pixels
+        return best_template_filename, min_measure
     else:
         return None, None
 
@@ -217,6 +223,7 @@ class PuzzleStatus(Enum):
     INCOMPLETE = "Incomplete"
     STAR_BROKEN = "Star Broken"
     WRONG_POPUP = "Wrong Popup"
+    ALREADY_SOLVED = "Already Solved"
 
 
 def completed_check(screenshot_path) -> PuzzleStatus:
@@ -233,24 +240,31 @@ def completed_check(screenshot_path) -> PuzzleStatus:
         yellow = (0, 255, 255)
         dark_yellow = (0, 178, 178)
         # ultimate mode
+        red = (0, 0, 255)
         dark_red = (0, 0, 178)
         black = (0, 0, 0)
         color1 = screenshot[51, 833]
         color2 = screenshot[65, 868]
         color3 = screenshot[70, 863]
-        color_LD = screenshot[580, 41]
         if (color1 == yellow).all() and (color2 == yellow).all():
-            return PuzzleStatus.FINISH
+            return PuzzleStatus.FINISH  ## 체크표시
         if (color1 == dark_yellow).all() and (color3 == dark_yellow).all():
             return PuzzleStatus.NEXT
         if (color1 == dark_red).all() and (color3 == dark_red).all():
             return PuzzleStatus.NEXT
+
+        color4 = screenshot[70, 863]
+        color5 = screenshot[70, 863]
+        if (color4 == red).all() and (color5 == red).all():
+            return PuzzleStatus.ALREADY_SOLVED  ## 빨리감기표시
+
+        color_LD = screenshot[580, 41]
         if (color_LD == black).all():
             return PuzzleStatus.STAR_BROKEN
 
         color_LU = screenshot[112, 89]
-        popup_border = (126, 126, 126)
         color_RD = screenshot[520, 945]
+        popup_border = (126, 126, 126)
         popup_inside = (45, 45, 45)
         if (color_LU == popup_border).all() and (color_RD == popup_inside).all():
             return PuzzleStatus.WRONG_POPUP
@@ -260,3 +274,17 @@ def completed_check(screenshot_path) -> PuzzleStatus:
     except Exception as e:
         print(f"Error checking pixel colors: {e}")
         return PuzzleStatus.INCOMPLETE
+
+
+def all_solved_check(window_title):
+    capture_window_screenshot(window_title)
+    current_screenshot = imread(f"{window_title}.png")
+    reference_image = imread("size_skipper.png")
+    x1, y1, x2, y2 = 946, 571, 1024, 593
+    current_region = current_screenshot[y1:y2, x1:x2]
+    reference_region = reference_image[y1:y2, x1:x2]
+    if current_region.shape == reference_region.shape:
+        return np.array_equal(current_region, reference_region)
+    else:
+        print("Region dimensions don't match")
+        return False
