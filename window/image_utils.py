@@ -169,52 +169,31 @@ def find_best_fit_cells(window_title, cell_size, rule):
     screenshot_path = f"{window_title}.png"
     cell_coordinates = get_cropped_cell_coordinates(window_title, cell_size)
     screenshot = imread(screenshot_path)
-
+    temp_dir = "C:/dev/14mv/temp"
+    current_directory = os.path.dirname(os.path.abspath(__file__))
     if "W" in rule and not "W'" in rule:
-        best_fit_filenames = []
-        for row in cell_coordinates:
-            row_best_fit = []
-            for coordinates in row:
-                x1, y1, x2, y2 = coordinates
-                captured_cell = screenshot[y1:y2, x1:x2]
-                temp_dir = "C:/dev/14mv/temp"  # should not have korean
-                captured_cell_filename = os.path.join(
-                    temp_dir, f"captured_cell_{coordinates[0]}_{coordinates[1]}.png"
-                )
-                imwrite(captured_cell_filename, captured_cell)
-                current_directory = os.path.dirname(os.path.abspath(__file__))
-                templates_directory = os.path.join(
-                    current_directory, "..", "images", window_title, "W"
-                )
-                best_template_filename, min_diff_pixels = find_best_template_filename(
-                    window_title, captured_cell_filename, templates_directory
-                )
-                row_best_fit.append(best_template_filename)
-            best_fit_filenames.append(row_best_fit)
-        return best_fit_filenames
-
-    else:  # include cases of L, P
-        best_fit_filenames = []
-        for row in cell_coordinates:
-            row_best_fit = []
-            for coordinates in row:
-                x1, y1, x2, y2 = coordinates
-                captured_cell = screenshot[y1:y2, x1:x2]
-                temp_dir = "C:/dev/14mv/temp"  # should not have korean
-                captured_cell_filename = os.path.join(
-                    temp_dir, f"captured_cell_{coordinates[0]}_{coordinates[1]}.png"
-                )
-                imwrite(captured_cell_filename, captured_cell)
-                current_directory = os.path.dirname(os.path.abspath(__file__))
-                templates_directory = os.path.join(
-                    current_directory, "..", "images", window_title, "V"
-                )
-                best_template_filename, min_diff_pixels = find_best_template_filename(
-                    window_title, captured_cell_filename, templates_directory
-                )
-                row_best_fit.append(best_template_filename)
-            best_fit_filenames.append(row_best_fit)
-        return best_fit_filenames
+        template_folder = "W"
+    elif "N" in rule:
+        template_folder = "N"
+    else:
+        template_folder = "V"
+    templates_directory = os.path.join(
+        current_directory, "..", "images", window_title, template_folder
+    )
+    best_fit_filenames = [[] for _ in range(len(cell_coordinates))]
+    for row_idx, row in enumerate(cell_coordinates):
+        for coordinates in row:
+            x1, y1, x2, y2 = coordinates
+            captured_cell = screenshot[y1:y2, x1:x2]
+            captured_cell_filename = os.path.join(
+                temp_dir, f"captured_cell_{coordinates[0]}_{coordinates[1]}.png"
+            )
+            imwrite(captured_cell_filename, captured_cell)
+            best_template_filename, _ = find_best_template_filename(
+                window_title, captured_cell_filename, templates_directory
+            )
+            best_fit_filenames[row_idx].append(best_template_filename)
+    return best_fit_filenames
 
 
 def parse_cell_for_numeric(filename):
