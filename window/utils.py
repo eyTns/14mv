@@ -14,10 +14,11 @@ from window.const import (
     RULE_T,
     RULE_U,
     RULE_A,
+    # RULE_B,
+    get_rule_B,
     RULE_H,
     RULE_D1,
     RULE_D2,
-    RULE_D3,
     SPECIAL_CELLS,
     TOTAL_MINES,
     MAX_CASES,
@@ -26,17 +27,20 @@ from window.image_utils import PuzzleStatus, capture_window_screenshot, complete
 from window.region import (
     ExpandedRegion,
     Region,
-    WRegion,
-    LRegion,
-    PRegion,
-    MRegion,
-    NRegion,
-    WprimeRegion,
+    RuleRegion,
 )
 from window.rules import (
     is_valid_case_for_rule,
     filter_cases_by_rule,
     get_expanded_regions_by_rule,
+)
+from window.hint_utils import (
+    find_double_areas,
+    find_quadruple_inequalities,
+    find_single_clickable_cells,
+    find_triple_inclusions,
+    find_triple_inequalities,
+    find_two_pairs_inequalities,
 )
 
 
@@ -163,22 +167,12 @@ def analyze_regions(grid, rule, grid_region=True) -> list[Region]:
     return [r for r in regions if r]
 
 
-def analyze_regions_by_rule(grid, rule) -> list:
+def analyze_exregions_by_rule(grid, rule) -> list:
     regions = []
     rows, cols = len(grid), len(grid[0])
 
-    if rule == "W":
-        region_type = WRegion
-    elif rule == "W'":
-        region_type = WprimeRegion
-    elif rule == "L":
-        region_type = LRegion
-    elif rule == "P":
-        region_type = PRegion
-    elif rule == "M":
-        region_type = MRegion
-    elif rule == "N":
-        region_type = NRegion
+    if rule in ["W", "W'", "L", "P", "M", "N"]:
+        region_type = RuleRegion
 
     for r in range(rows):
         for c in range(cols):
@@ -216,210 +210,17 @@ def analyze_regions_by_rule(grid, rule) -> list:
                         pre_filled_numbers=pre_filled_numbers,
                     )
                     regions.append(region)
-
     return regions
 
 
-def find_single_clickable_cells(regions_info: list[Region]):
+def find_all_area_hints(regions):
     hints = set()
-
-    for region in regions_info:
-        mines_needed = region.mines_needed
-        if region.mines_needed == 0 and len(region.blank_cells) > 0:
-            for blank_r, blank_c in region.blank_cells:
-                hints.add(("safe", (blank_r, blank_c)))
-        elif mines_needed == len(region.blank_cells) > 0:
-            for blank_r, blank_c in region.blank_cells:
-                hints.add(("mine", (blank_r, blank_c)))
-
-    return hints
-
-
-def deduce_double_inequalities(r1: Region, r2: Region):
-    hints = set()
-
-    r1b = r1.blank_cells
-    r2b = r2.blank_cells
-    r1on = r1b - r2b
-    r1m = r1.mines_needed
-    r2m = r2.mines_needed
-
-    if r1m - r2m >= len(r1on):
-        for blank_r, blank_c in r2b - r1b:
-            hints.add(("safe", (blank_r, blank_c)))
-        for blank_r, blank_c in r1b - r2b:
-            hints.add(("mine", (blank_r, blank_c)))
-
-    return hints
-
-
-def find_double_areas(regions_info: list[Region]):
-    hints = set()
-    for r1, r2 in combinations(regions_info, 2):
-        hints.update(deduce_double_inequalities(r1, r2))
-        hints.update(deduce_double_inequalities(r2, r1))
-    return hints
-
-
-def find_triple_inclusions(regions_info: list[Region]):
-    hints = set()
-
-    for r1, r2, r3 in combinations(regions_info, 3):
-        if not (r1.blank_cells & r2.blank_cells):
-            r12 = Region(
-                mines_needed=r1.mines_needed + r2.mines_needed,
-                blank_cells=r1.blank_cells | r2.blank_cells,
-            )
-            hints.update(deduce_double_inequalities(r12, r3))
-            hints.update(deduce_double_inequalities(r3, r12))
-        if not (r2.blank_cells & r3.blank_cells):
-            r23 = Region(
-                mines_needed=r2.mines_needed + r3.mines_needed,
-                blank_cells=r2.blank_cells | r3.blank_cells,
-            )
-            hints.update(deduce_double_inequalities(r23, r1))
-            hints.update(deduce_double_inequalities(r1, r23))
-        if not (r3.blank_cells & r1.blank_cells):
-            r31 = Region(
-                mines_needed=r3.mines_needed + r1.mines_needed,
-                blank_cells=r3.blank_cells | r1.blank_cells,
-            )
-            hints.update(deduce_double_inequalities(r31, r2))
-            hints.update(deduce_double_inequalities(r2, r31))
-    return hints
-
-
-def deduce_triple_inequalities(r1: Region, r2: Region, r3: Region):
-    hints = set()
-    r1b = r1.blank_cells
-    r2b = r2.blank_cells
-    r3b = r3.blank_cells
-    r1on = r1b - r2b - r3b
-    r1m = r1.mines_needed
-    r2m = r2.mines_needed
-    r3m = r3.mines_needed
-    r1n = r1.numbers_needed
-    r2n = r2.numbers_needed
-    r3n = r3.numbers_needed
-    if r1m - r2m - r3m + 1 >= len(r1on):
-        safe_cells = (r2b & r3b) - r1b
-        if safe_cells:
-            for blank_r, blank_c in safe_cells:
-                hints.add(("safe", (blank_r, blank_c)))
-    if r1n - r2n - r3n + 1 >= len(r1on):
-        mine_cells = (r2b & r3b) - r1b
-        if mine_cells:
-            for blank_r, blank_c in mine_cells:
-                hints.add(("mine", (blank_r, blank_c)))
-    return hints
-
-
-def find_triple_inequalities(regions_info: list[Region], deep: bool = False):
-    hints = set()
-    for r1, r2, r3 in combinations(regions_info, 3):
-        hints.update(deduce_triple_inequalities(r1, r2, r3))
-        hints.update(deduce_triple_inequalities(r2, r3, r1))
-        hints.update(deduce_triple_inequalities(r3, r1, r2))
-        if deep and hints:
-            print(f"Triple hints: {hints}")
-            return hints
-    return hints
-
-
-def deduce_quadruple_inequalities(r1: Region, r2: Region, r3: Region, r4: Region):
-    hints = set()
-
-    r1b = r1.blank_cells
-    r2b = r2.blank_cells
-    r3b = r3.blank_cells
-    r4b = r4.blank_cells
-    r1on = r1b - r2b - r3b - r4b
-    r1m = r1.mines_needed
-    r2m = r2.mines_needed
-    r3m = r3.mines_needed
-    r4m = r4.mines_needed
-    r1n = r1.numbers_needed
-    r2n = r2.numbers_needed
-    r3n = r3.numbers_needed
-    r4n = r4.numbers_needed
-
-    if r1m - r2m - r3m - r4m + 1 >= len(r1on):
-        safe23 = r2b & r3b
-        safe34 = r3b & r4b
-        safe42 = r4b & r2b
-        safe_cells = (safe23 | safe34 | safe42) - r1b
-        if safe_cells:
-            for blank_r, blank_c in safe_cells:
-                hints.add(("safe", (blank_r, blank_c)))
-
-    if r1n - r2n - r3n - r4n + 1 >= len(r1on):
-        mine23 = r2b & r3b
-        mine34 = r3b & r4b
-        mine42 = r4b & r2b
-        mine_cells = (mine23 | mine34 | mine42) - r1b
-        if mine_cells:
-            for blank_r, blank_c in mine_cells:
-                hints.add(("mine", (blank_r, blank_c)))
-
-    return hints
-
-
-def find_quadruple_inequalities(regions_info: list[Region], deep: bool = False):
-    hints = set()
-    for r1, r2, r3, r4 in combinations(regions_info, 4):
-        hints.update(deduce_quadruple_inequalities(r1, r2, r3, r4))
-        hints.update(deduce_quadruple_inequalities(r2, r3, r4, r1))
-        hints.update(deduce_quadruple_inequalities(r3, r4, r1, r2))
-        hints.update(deduce_quadruple_inequalities(r4, r1, r2, r3))
-        if deep and hints:
-            print(f"Quadruple hints: {hints}")
-            return hints
-    return hints
-
-
-def find_two_pairs_inequalities(regions_info: list[Region], deep: bool = False):
-    hints = set()
-    for r1, r2, r3, r4 in combinations(regions_info, 4):
-        r1b = r1.blank_cells
-        r2b = r2.blank_cells
-        r3b = r3.blank_cells
-        r4b = r4.blank_cells
-        if r1b & r2b == r3b & r4b:
-            r12 = Region(
-                mines_needed=r1.mines_needed + r2.mines_needed,
-                blank_cells=r1.blank_cells | r2.blank_cells,
-            )
-            r34 = Region(
-                mines_needed=r3.mines_needed + r4.mines_needed,
-                blank_cells=r3.blank_cells | r4.blank_cells,
-            )
-            hints.update(deduce_double_inequalities(r12, r34))
-            hints.update(deduce_double_inequalities(r34, r12))
-        if r1b & r3b == r2b & r4b:
-            r13 = Region(
-                mines_needed=r1.mines_needed + r3.mines_needed,
-                blank_cells=r1.blank_cells | r3.blank_cells,
-            )
-            r24 = Region(
-                mines_needed=r2.mines_needed + r4.mines_needed,
-                blank_cells=r2.blank_cells | r4.blank_cells,
-            )
-            hints.update(deduce_double_inequalities(r13, r24))
-            hints.update(deduce_double_inequalities(r24, r13))
-        if r1b & r4b == r2b & r3b:
-            r14 = Region(
-                mines_needed=r1.mines_needed + r4.mines_needed,
-                blank_cells=r1.blank_cells | r4.blank_cells,
-            )
-            r23 = Region(
-                mines_needed=r2.mines_needed + r3.mines_needed,
-                blank_cells=r2.blank_cells | r3.blank_cells,
-            )
-            hints.update(deduce_double_inequalities(r14, r23))
-            hints.update(deduce_double_inequalities(r23, r14))
-        if deep and hints:
-            print(f"Two Pair hints: {hints}")
-            return hints
+    hints.update(find_single_clickable_cells(regions))
+    hints.update(find_double_areas(regions))
+    # hints.update(find_triple_inclusions(regions[:200]))
+    # hints.update(find_triple_inequalities(regions[:200]))
+    # hints.update(find_quadruple_inequalities(regions[:60]))
+    # hints.update(find_two_pairs_inequalities(regions[:60]))
     return hints
 
 
@@ -465,6 +266,16 @@ def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
             if "T" in rule:
                 if not is_valid_case_for_rule(applied_grid, RULE_T):
                     continue
+            if "D" in rule and "D'" not in rule:
+                # if not is_valid_case_for_rule(applied_grid, RULE_D1):
+                #     continue
+                # if not is_valid_case_for_rule(applied_grid, RULE_D1):
+                #     continue
+                if not is_valid_case_for_rule(applied_grid, RULE_D2):
+                    continue
+            if "B" in rule:
+                if not is_valid_case_for_rule(applied_grid, get_rule_B(len(grid))):
+                    continue
             if "A" in rule:
                 if not is_valid_case_for_rule(applied_grid, RULE_A):
                     continue
@@ -473,13 +284,6 @@ def expand_regions(regions: list[Region], grid, rule) -> list[ExpandedRegion]:
                     continue
             if "U" in rule:
                 if not is_valid_case_for_rule(applied_grid, RULE_U):
-                    continue
-            if "D" in rule and "D'" not in rule:
-                # if not is_valid_case_for_rule(applied_grid, RULE_D1):
-                #     continue
-                if not is_valid_case_for_rule(applied_grid, RULE_D2):
-                    continue
-                if not is_valid_case_for_rule(applied_grid, RULE_D3):
                     continue
             valid_mine_combinations.append(mines)
         if len(valid_mine_combinations) > MAX_CASES:
@@ -516,10 +320,8 @@ def extract_hints(
         else:
             uncertain_cells.append(cell)
             uncertain_cell_indices.append(i)
-
     if not hints:
         return set(), region
-
     if uncertain_cells:
         mask = sum(1 << i for i in uncertain_cell_indices)
         seen_patterns = set()
@@ -582,16 +384,19 @@ def apply_filter_for_all_rules(
         region = filter_cases_by_rule(region, grid, RULE_Q)
     if "T" in rule:
         region = filter_cases_by_rule(region, grid, RULE_T)
+    if "D" in rule:
+        # region = filter_cases_by_rule(region, grid, RULE_D1)
+        # region = filter_cases_by_rule(region, grid, RULE_D1)
+        region = filter_cases_by_rule(region, grid, RULE_D2)
+    if "B" in rule:
+        region = filter_cases_by_rule(region, grid, get_rule_B(len(grid)))
     if "A" in rule:
+        r1 = region
         region = filter_cases_by_rule(region, grid, RULE_A)
     if "H" in rule:
         region = filter_cases_by_rule(region, grid, RULE_H)
     if "U" in rule:
         region = filter_cases_by_rule(region, grid, RULE_U)
-    if "D" in rule:
-        # region = filter_cases_by_rule(region, grid, RULE_D1)
-        region = filter_cases_by_rule(region, grid, RULE_D2)
-        region = filter_cases_by_rule(region, grid, RULE_D3)
     return region
 
 
@@ -601,16 +406,18 @@ def get_expanded_regions_by_all_rule(grid, rule):
         exregions.extend(get_expanded_regions_by_rule(grid, RULE_Q))
     if "T" in rule:
         exregions.extend(get_expanded_regions_by_rule(grid, RULE_T))
+    if "D" in rule and "D'" not in rule:
+        # exregions.extend(get_expanded_regions_by_rule(grid, RULE_D1))
+        # exregions.extend(get_expanded_regions_by_rule(grid, RULE_D1))
+        exregions.extend(get_expanded_regions_by_rule(grid, RULE_D2))
+    if "B" in rule:
+        exregions.extend(get_expanded_regions_by_rule(grid, get_rule_B(len(grid))))
     if "A" in rule:
         exregions.extend(get_expanded_regions_by_rule(grid, RULE_A))
     if "H" in rule:
         exregions.extend(get_expanded_regions_by_rule(grid, RULE_H))
     if "U" in rule:
         exregions.extend(get_expanded_regions_by_rule(grid, RULE_U))
-    if "D" in rule and "D'" not in rule:
-        # exregions.extend(get_expanded_regions_by_rule(grid, RULE_D1))
-        exregions.extend(get_expanded_regions_by_rule(grid, RULE_D2))
-        exregions.extend(get_expanded_regions_by_rule(grid, RULE_D3))
     return exregions
 
 
@@ -623,7 +430,6 @@ def solve_with_expanded_regions(
 
     reduced_regions = []
     for exregion in exregions:
-        # print(exregion)
         exregion = apply_filter_for_all_rules(exregion, grid, rule)
         new_hints, reduced = extract_hints(exregion)
         if new_hints:
@@ -634,8 +440,6 @@ def solve_with_expanded_regions(
             and 2 ** len(reduced.blank_cells) > reduced.case_count
         ):
             reduced_regions.append(reduced)
-        # print(reduced)
-        # print()
     exregions = reduced_regions
 
     start_time = time.time()

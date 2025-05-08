@@ -27,19 +27,25 @@ def is_valid_case_for_rule(
                 if not valid:
                     continue
 
+                blank_count = cells.count(SPECIAL_CELLS["blank"])
+                mine_count = cells.count(SPECIAL_CELLS["flag"])
+                number_count = len(cells) - blank_count - mine_count
                 if pattern_condition == "no_all_mines":
-                    if all(cell == SPECIAL_CELLS["flag"] for cell in cells):
+                    if mine_count == len(cells):
                         return False
                 elif pattern_condition == "max_two_mines":
-                    mine_count = sum(
-                        1 for cell in cells if cell == SPECIAL_CELLS["flag"]
-                    )
                     if mine_count > 2:
                         return False
-                elif pattern_condition == "no_all_numbers":
-                    if all(cell not in [-1, -2] for cell in cells):
+                elif pattern_condition == "exact_two_mines":
+                    if mine_count > 2 or mine_count + blank_count < 2:
                         return False
-                elif pattern_condition == "no_center_mine_only":
+                elif pattern_condition == "exact_three_mines":
+                    if mine_count > 3 or mine_count + blank_count < 3:
+                        return False
+                elif pattern_condition == "no_all_numbers":
+                    if number_count == len(cells):
+                        return False
+                elif pattern_condition == "cross_D":
                     if cells[0] == SPECIAL_CELLS["flag"]:
                         if all(
                             cell not in [SPECIAL_CELLS["flag"], SPECIAL_CELLS["blank"]]
@@ -189,7 +195,7 @@ def get_expanded_regions_by_rule(grid, rule) -> list[ExpandedRegion]:
                 existing_mines = 0
                 existing_numbers = 0
 
-                if pattern_condition == "no_center_mine_only":
+                if pattern_condition == "cross_D":
                     center_cell = pattern_cells[0]
                     other_cells = pattern_cells[1:]
                 else:
@@ -219,13 +225,21 @@ def get_expanded_regions_by_rule(grid, rule) -> list[ExpandedRegion]:
                         continue
                     cases = list(range(2**num_blanks - 1))
                 elif pattern_condition == "max_two_mines":
-                    if existing_mines > 2:
-                        continue
                     max_additional_mines = 2 - existing_mines
                     for case in range(2**num_blanks):
                         if bin(case).count("1") <= max_additional_mines:
                             cases.append(case)
-                elif pattern_condition == "no_center_mine_only":
+                elif pattern_condition == "exact_two_mines":
+                    additional_mines = 2 - existing_mines
+                    for case in range(2**num_blanks):
+                        if bin(case).count("1") == additional_mines:
+                            cases.append(case)
+                elif pattern_condition == "exact_three_mines":
+                    additional_mines = 3 - existing_mines
+                    for case in range(2**num_blanks):
+                        if bin(case).count("1") == additional_mines:
+                            cases.append(case)
+                elif pattern_condition == "cross_D":
                     center_r, center_c = center_cell
                     # print(f"*** {center_cell} ******************")
                     if grid[center_r][center_c] not in [-1, -2]:

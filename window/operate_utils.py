@@ -1,4 +1,5 @@
 from window.const import (
+    BASIC_RULES,
     PAGE_COORDINATES,
     SINGLE_RULE_COORDINATES,
     DOUBLE_RULE_COORDINATES,
@@ -11,14 +12,17 @@ def get_page_coordinates(rule, size=None, difficulty=None):
     is_combined_rule = len(rule.replace("'", "")) >= 2
     if is_combined_rule:
         key = f"{size}{difficulty}"
-        return PAGE_COORDINATES.get(key)
+        return PAGE_COORDINATES[key]
     else:
-        difficulty_key = difficulty if difficulty else "."
-        return PAGE_COORDINATES.get(difficulty_key)
+        if rule in BASIC_RULES:
+            difficulty_key = difficulty if difficulty else "."
+        else:
+            difficulty_key = "?" + difficulty
+        return PAGE_COORDINATES[difficulty_key]
 
 
 def get_single_rule_coordinates(rule, size):
-    return SINGLE_RULE_COORDINATES.get(f"{rule}{size}")
+    return SINGLE_RULE_COORDINATES[f"{rule}{size}"]
 
 
 def get_gallery_coordinates(rule):
@@ -30,8 +34,8 @@ def get_gallery_coordinates(rule):
     else:
         first_rule = rule[0]
         second_rule = rule[1:]
-    first_coord = DOUBLE_RULE_COORDINATES.get(first_rule)
-    second_coord = DOUBLE_RULE_COORDINATES.get(second_rule)
+    first_coord = DOUBLE_RULE_COORDINATES[first_rule]
+    second_coord = DOUBLE_RULE_COORDINATES[second_rule]
     coord = dict()
     coord[first_coord[0]] = first_coord[1]
     coord[second_coord[0]] = second_coord[1]

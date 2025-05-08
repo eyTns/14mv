@@ -3,6 +3,8 @@ from typing import Iterator
 from pydantic import BaseModel
 from itertools import groupby
 
+from window.const import RULE_Q, RULE_T, SPECIAL_CELLS
+
 
 class Region(BaseModel):
     mines_needed: int
@@ -33,16 +35,64 @@ class RuleRegion(BaseModel):
     pre_filled_numbers: list[tuple[int, int]]
 
 
-LRegion = RuleRegion
+class LeftSideRegion(BaseModel):
+    rule: str
+    area_cells: list[tuple[int, int]]
+    pre_filled_mines: list[tuple[int, int]]
+    pre_filled_numbers: list[tuple[int, int]]
 
-PRegion = RuleRegion
+    @classmethod
+    def from_left_side_rule(cls, grid, rule, row, col):
+        if rule == "Q":
+            rule_dict = RULE_Q
+        elif rule == "T":
+            rule_dict = RULE_T
 
-MRegion = RuleRegion
+        directions = rule_dict["directions"][0]  ## 틀렸음
+        area_cells = []
+        for dr, dc in directions:
+            new_row, new_col = row + dr, col + dc
+            if not (0 <= new_row < len(grid) and 0 <= new_col < len(grid[0])):
+                if rule_dict["outsider_condition"] == "invalid":
+                    return None
+            area_cells.append((new_row, new_col))
+        pre_filled_mines = []
+        pre_filled_numbers = []
+        for r, c in area_cells:
+            if 0 <= r < len(grid) and 0 <= c < len(grid[0]):
+                cell_value = grid[r][c]
+                if cell_value == SPECIAL_CELLS["flag"]:
+                    pre_filled_mines.append((r, c))
+                elif cell_value not in [-1, -2]:
+                    pre_filled_numbers.append((r, c))
 
-NRegion = RuleRegion
+        if (
+            rule_dict["pattern_condition"] == "no_all_numbers"
+            and len(pre_filled_numbers) == 4
+        ):
+            return None
 
-WprimeRegion = RuleRegion
-WRegion = RuleRegion
+        return cls(
+            rule=rule,
+            area_cells=area_cells,
+            pre_filled_mines=pre_filled_mines,
+            pre_filled_numbers=pre_filled_numbers,
+        )
+
+
+class RightSideRegion(BaseModel):
+    rule: str
+    center: tuple[int, int]
+    number: int
+    pre_filled_mines: list[tuple[int, int]]
+    pre_filled_numbers: list[tuple[int, int]]
+
+
+class GridRegion(BaseModel):
+    mines_needed: int
+    numbers_needed: int
+    pre_filled_mines: list[tuple[int, int]]
+    pre_filled_numbers: list[tuple[int, int]]
 
 
 class ExpandedRegion(BaseModel):
@@ -118,23 +168,23 @@ class ExpandedRegion(BaseModel):
 
     @classmethod
     def from_rule_region(cls, region, rule) -> "ExpandedRegion":
-        if rule == "W":
-            return cls.from_wregion(region)
-        elif rule == "W'":
-            return cls.from_wprimeregion(region)
+        if rule == "M":
+            return cls.from_mregion(region)
         elif rule == "L":
             return cls.from_lregion(region)
-        elif rule == "P":
-            return cls.from_pregion(region)
-        elif rule == "M":
-            return cls.from_mregion(region)
+        elif rule == "W":
+            return cls.from_wregion(region)
         elif rule == "N":
             return cls.from_nregion(region)
+        elif rule == "P":
+            return cls.from_pregion(region)
+        elif rule == "W'":
+            return cls.from_wprimeregion(region)
         else:
             raise ValueError(f"Invalid rule: {rule}")
 
     @classmethod
-    def from_wregion(cls, wregion: WRegion) -> "ExpandedRegion":
+    def from_wregion(cls, wregion: RuleRegion) -> "ExpandedRegion":
         blank_cells, surrounding_cells = cls._prepare_blank_cells(
             wregion.center, wregion.pre_filled_mines, wregion.pre_filled_numbers
         )
@@ -158,7 +208,7 @@ class ExpandedRegion(BaseModel):
         return cls(blank_cells=blank_cells, cases=valid_cases)
 
     @classmethod
-    def from_wprimeregion(cls, wprimeregion: WprimeRegion) -> "ExpandedRegion":
+    def from_wprimeregion(cls, wprimeregion: RuleRegion) -> "ExpandedRegion":
         blank_cells, surrounding_cells = cls._prepare_blank_cells(
             wprimeregion.center,
             wprimeregion.pre_filled_mines,
@@ -182,7 +232,7 @@ class ExpandedRegion(BaseModel):
         return cls(blank_cells=blank_cells, cases=valid_cases)
 
     @classmethod
-    def from_lregion(cls, lregion: LRegion) -> "ExpandedRegion":
+    def from_lregion(cls, lregion: RuleRegion) -> "ExpandedRegion":
         blank_cells, _ = cls._prepare_blank_cells(
             lregion.center, lregion.pre_filled_mines, lregion.pre_filled_numbers
         )
@@ -198,7 +248,7 @@ class ExpandedRegion(BaseModel):
         return cls(blank_cells=blank_cells, cases=valid_cases)
 
     @classmethod
-    def from_pregion(cls, pregion: PRegion) -> "ExpandedRegion":
+    def from_pregion(cls, pregion: RuleRegion) -> "ExpandedRegion":
         blank_cells, surrounding_cells = cls._prepare_blank_cells(
             pregion.center, pregion.pre_filled_mines, pregion.pre_filled_numbers
         )
@@ -220,7 +270,7 @@ class ExpandedRegion(BaseModel):
         return cls(blank_cells=blank_cells, cases=valid_cases)
 
     @classmethod
-    def from_mregion(cls, mregion: MRegion) -> "ExpandedRegion":
+    def from_mregion(cls, mregion: RuleRegion) -> "ExpandedRegion":
         blank_cells, surrounding_cells = cls._prepare_blank_cells(
             mregion.center, mregion.pre_filled_mines, mregion.pre_filled_numbers
         )
@@ -249,7 +299,7 @@ class ExpandedRegion(BaseModel):
         return cls(blank_cells=blank_cells, cases=valid_cases)
 
     @classmethod
-    def from_nregion(cls, nregion: NRegion) -> "ExpandedRegion":
+    def from_nregion(cls, nregion: RuleRegion) -> "ExpandedRegion":
         blank_cells, surrounding_cells = cls._prepare_blank_cells(
             nregion.center, nregion.pre_filled_mines, nregion.pre_filled_numbers
         )

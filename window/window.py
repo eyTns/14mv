@@ -31,18 +31,13 @@ from window.utils import (
     apply_hints,
     diff_regions,
     expand_regions,
-    find_double_areas,
-    find_quadruple_inequalities,
-    find_single_clickable_cells,
-    find_triple_inclusions,
-    find_triple_inequalities,
-    find_two_pairs_inequalities,
+    find_all_area_hints,
     next_level_check,
     skip_level,
     solve_with_expanded_regions,
     get_grid_region,
     process_hints,
-    analyze_regions_by_rule,
+    analyze_exregions_by_rule,
     get_expanded_regions_by_all_rule,
     switch_to_other_size,
 )
@@ -145,65 +140,58 @@ class MyWindow(QMainWindow):
         self.iterate_forever = conf["iterate_forever"]
         self.cell_size = detect_cell_size(self.window_title)
 
-        variant_strings = [
-            "T 5",
-            "T 6",
-            "T 7",
-            "T 8",
-            "T 5!",
-            "T 6!",
-            "T 7!",
-            "T 8!",
-            "T 5!!",
-            "T 6!!",
-            "T 7!!",
-            "T 8!!",
-            "TM 5",
-            "TM 6",
-            "TM 7",
-            "TM 8",
-            "TM 5!",
-            "TL 5",
-            "TL 6",
-            "TL 7",
-            "TL 8",
-            "TL 5!",
-            "TW 5",
-            "TW 6",
-            "TW 7",
-            "TW 8",
-            "TW 5!",
-            "TN 5",
-            "TN 6",
-            "TN 7",
-            "TN 8",
-            "TN 5!",
-            "TX 5",
-            "TX 6",
-            "TX 7",
-            "TX 8",
-            "TX 5!",
-            "TP 5",
-            "TP 6",
-            "TP 7",
-            "TP 8",
-            "TP 5!",
-            "TX' 5",
-            "TX' 6",
-            "TX' 7",
-            "TX' 8",
-            "TX' 5!",
-            "TK 5",
-            "TK 6",
-            "TK 7",
-            "TK 8",
-            "TK 5!",
-            "TW' 5",
-            "TW' 6",
-            "TW' 7",
-            "TW' 8",
-            "TW' 5!",
-        ]
+        variant_strings = []
+
+        # # preset 1: turn on
+        # rules_to_examine = ["H", "A", "B", "D", "T"]
+        # size_to_examine = [5, 6, 7, 8]
+        # difficulty_to_examine = ["", "!"]
+        # variant_strings.extend(
+        #     [
+        #         f"{i} {j}{k}"
+        #         for i in rules_to_examine
+        #         for k in difficulty_to_examine
+        #         for j in size_to_examine
+        #     ]
+        # )
+
+        # rules_to_examine = ["D", "A", "H", "M", "L", "W'", "T"]
+        rules_to_examine = ["H", "A", "B", "D", "T"]
+        # rules_to_examine = [
+        #     "H",
+        #     "AM",
+        #     "AL",
+        #     "AW",
+        #     "AW'",
+        #     "HM",
+        #     "HL",
+        #     "HW",
+        #     "HN",
+        #     "HX",
+        #     "HX'",
+        #     "HK",
+        #     "HW'",
+        #     "BM",
+        #     "BL",
+        #     "BW",
+        #     "BN",
+        #     "BP",
+        #     "W'",
+        #     "BW'",
+        #     "B",
+        #     "A",
+        # ]
+        rules_to_examine = ["H", "A", "B", "D", "T"]
+        size_to_examine = [5, 6, 7, 8]
+        difficulty_to_examine = ["", "!"]
+        variant_strings.extend(
+            [
+                f"{i} {j}{k}"
+                for i in rules_to_examine
+                for k in difficulty_to_examine
+                for j in size_to_examine
+            ]
+        )
 
         self.variants_to_iterate = [
             PuzzleVariant.from_string(vs) for vs in variant_strings
@@ -211,23 +199,23 @@ class MyWindow(QMainWindow):
 
         if self.iterate_forever:
             while True:
-                self.skipped_levels = 0
-                while True:
-                    self.process_game_data()
-                    print("skipping level")
-                    skip_level(self.window_title)
-                    self.skipped_levels += 1
-                    if self.skipped_levels >= 10:
-                        break
-                    if all_solved_check(self.window_title):
-                        break
-                print("moving to other size")
                 next_variant = self.variants_to_iterate.pop(0)
                 to_click = next_variant.get_menu_coordinates()
                 switch_to_other_size(self.window_title, to_click)
                 self.variants_to_iterate.append(next_variant)
                 self.cell_size = detect_cell_size(self.window_title)
                 self.rule = next_variant.rule
+                self.skipped_levels = 0
+                while True:
+                    self.process_game_data()
+                    print("skipping level")
+                    skip_level(self.window_title)
+                    self.skipped_levels += 1
+                    if self.skipped_levels >= 5:
+                        break
+                    if all_solved_check(self.window_title):
+                        break
+                print("moving to other size")
         else:
             self.process_game_data()
 
@@ -280,19 +268,28 @@ class MyWindow(QMainWindow):
             #     print()
             # return 1 / 0
             hints = set()
-            special_rules = (
-                ("W" in self.rule and not "W'" in self.rule)
-                or ("W'" in self.rule)
-                or ("L" in self.rule)
-                or ("P" in self.rule)
-                or ("M" in self.rule)
-                or ("N" in self.rule)
-            )
+
+            def is_regionable(rule):
+                return rule in ["V", "B", "X", "X'", "K", "BX", "BX'", "BK"]
+
+            # special_rules = (
+            #     ("W" in self.rule and not "W'" in self.rule)
+            #     or ("W'" in self.rule)
+            #     or ("L" in self.rule)
+            #     or ("P" in self.rule)
+            #     or ("M" in self.rule)
+            #     or ("N" in self.rule)
+            # )
+
+            # Hint Finding Strategy 1, grid region 미포함
+            if is_regionable(self.rule):
+                ## WIP
+                pass
 
             # 영역 경우의 수 확장, grid region 미포함
             # print("searching expanded regions...")
             exregions = []  ## 숫자로부터 나온 exregions가 더 중요하므로 순서변경 금지
-            if special_rules:
+            if not is_regionable(self.rule):
                 rules_to_check = []
                 if "W'" in self.rule:
                     rules_to_check.append("W'")
@@ -307,9 +304,10 @@ class MyWindow(QMainWindow):
                 if "N" in self.rule:
                     rules_to_check.append("N")
                 for rule in rules_to_check:
-                    for region in analyze_regions_by_rule(grid, rule):
+                    for region in analyze_exregions_by_rule(grid, rule):
                         exregions.append(ExpandedRegion.from_rule_region(region, rule))
             else:
+                # pass
                 hint_count = 0
                 while True:
                     regions = analyze_regions(grid, self.rule, grid_region=False)
@@ -319,12 +317,7 @@ class MyWindow(QMainWindow):
                         hints.update(find_remaining_cells_from_quad(grid))
                     if "T" in self.rule:
                         hints.update(find_single_cell_from_triplet(grid))
-                    hints.update(find_single_clickable_cells(regions))
-                    hints.update(find_double_areas(regions))
-                    # hints.update(find_triple_inclusions(regions[:200]))
-                    # hints.update(find_triple_inequalities(regions[:200]))
-                    # hints.update(find_quadruple_inequalities(regions[:60]))
-                    # hints.update(find_two_pairs_inequalities(regions[:60]))
+                    hints.update(find_all_area_hints(regions))
                     if hint_count < len(hints):
                         hint_count = len(hints)
                         grid = apply_hints(grid, hints)
@@ -335,13 +328,9 @@ class MyWindow(QMainWindow):
                     continue
                 regions = analyze_regions(grid, self.rule, grid_region=False)
                 exregions.extend(expand_regions(regions, grid, self.rule))
-                exregions.extend(get_expanded_regions_by_all_rule(grid, self.rule))
 
+            exregions.extend(get_expanded_regions_by_all_rule(grid, self.rule))
             hints = solve_with_expanded_regions(exregions, grid, self.rule)
-
-            # 임시
-            if self.rule == "UW":
-                hints.update(find_flag_adjacent_cells(grid))
 
             if hints:
                 # print(hints)
@@ -350,9 +339,9 @@ class MyWindow(QMainWindow):
                 continue
 
             # 영역 경우의 수 확장, grid region 포함
-            print("searching expanded regions including grid...")
+            # print("searching expanded regions including grid...")
             exregions = []  ## 숫자로부터 나온 exregions가 더 중요하므로 순서변경 금지
-            if special_rules:
+            if not is_regionable(self.rule):
                 rules_to_check = []
                 if "W'" in self.rule:
                     rules_to_check.append("W'")
@@ -367,7 +356,7 @@ class MyWindow(QMainWindow):
                 if "N" in self.rule:
                     rules_to_check.append("N")
                 for rule in rules_to_check:
-                    for region in analyze_regions_by_rule(grid, rule):
+                    for region in analyze_exregions_by_rule(grid, rule):
                         exregions.append(ExpandedRegion.from_rule_region(region, rule))
                 regions = [get_grid_region(grid, self.rule)]
                 exregions.extend(expand_regions(regions, grid, self.rule))
@@ -381,12 +370,7 @@ class MyWindow(QMainWindow):
                         hints.update(find_remaining_cells_from_quad(grid))
                     if "T" in self.rule:
                         hints.update(find_single_cell_from_triplet(grid))
-                    hints.update(find_single_clickable_cells(regions))
-                    hints.update(find_double_areas(regions))
-                    hints.update(find_triple_inclusions(regions[:200]))
-                    hints.update(find_triple_inequalities(regions[:200]))
-                    hints.update(find_quadruple_inequalities(regions[:60]))
-                    hints.update(find_two_pairs_inequalities(regions[:60]))
+                    hints.update(find_all_area_hints(regions))
                     if hint_count < len(hints):
                         hint_count = len(hints)
                         grid = apply_hints(grid, hints)
@@ -397,23 +381,18 @@ class MyWindow(QMainWindow):
                     continue
                 regions = analyze_regions(grid, self.rule, grid_region=True)
                 exregions.extend(expand_regions(regions, grid, self.rule))
-                exregions.extend(get_expanded_regions_by_all_rule(grid, self.rule))
 
+            exregions.extend(get_expanded_regions_by_all_rule(grid, self.rule))
             hints = solve_with_expanded_regions(exregions, grid, self.rule)
             if hints:
                 process_hints(self.window_title, hints, self.cell_size, save_path)
                 continue
 
-            if not special_rules:
+            if is_regionable(self.rule):
                 regions = diff_regions(regions)
                 print(f"diff regions: {len(regions)}")
                 hints = set()
-                hints.update(find_single_clickable_cells(regions))
-                hints.update(find_double_areas(regions))
-                hints.update(find_triple_inclusions(regions[:200]))
-                hints.update(find_triple_inequalities(regions[:200]))
-                hints.update(find_quadruple_inequalities(regions[:60]))
-                hints.update(find_two_pairs_inequalities(regions[:60]))
+                hints.update(find_all_area_hints(regions))
                 if hints:
                     process_hints(self.window_title, hints, self.cell_size, save_path)
                     continue
