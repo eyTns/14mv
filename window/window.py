@@ -27,7 +27,7 @@ from window.rules import (  # get_quad_expanded_regions,; get_triplet_expanded_r
 from window.utils import (
     ExpandedRegion,
     activate_window,
-    analyze_regions,
+    # analyze_regions,
     apply_hints,
     diff_regions,
     expand_regions,
@@ -40,6 +40,8 @@ from window.utils import (
     analyze_exregions_by_rule,
     get_expanded_regions_by_all_rule,
     switch_to_other_size,
+    get_rule_regions,
+    get_all_rule_regions,
 )
 import time
 
@@ -141,22 +143,7 @@ class MyWindow(QMainWindow):
         self.cell_size = detect_cell_size(self.window_title)
 
         variant_strings = []
-
-        # # preset 1: turn on
-        # rules_to_examine = ["H", "A", "B", "D", "T"]
-        # size_to_examine = [5, 6, 7, 8]
-        # difficulty_to_examine = ["", "!"]
-        # variant_strings.extend(
-        #     [
-        #         f"{i} {j}{k}"
-        #         for i in rules_to_examine
-        #         for k in difficulty_to_examine
-        #         for j in size_to_examine
-        #     ]
-        # )
-
         # rules_to_examine = ["D", "A", "H", "M", "L", "W'", "T"]
-        rules_to_examine = ["H", "A", "B", "D", "T"]
         # rules_to_examine = [
         #     "H",
         #     "AM",
@@ -307,10 +294,9 @@ class MyWindow(QMainWindow):
                     for region in analyze_exregions_by_rule(grid, rule):
                         exregions.append(ExpandedRegion.from_rule_region(region, rule))
             else:
-                # pass
                 hint_count = 0
                 while True:
-                    regions = analyze_regions(grid, self.rule, grid_region=False)
+                    regions = get_all_rule_regions(grid, self.rule)
                     if self.rule == "UW":
                         hints.update(find_flag_adjacent_cells(grid))
                     if "Q" in self.rule:
@@ -326,9 +312,8 @@ class MyWindow(QMainWindow):
                 if hints:
                     process_hints(self.window_title, hints, self.cell_size, save_path)
                     continue
-                regions = analyze_regions(grid, self.rule, grid_region=False)
+                regions = get_all_rule_regions(grid, self.rule)
                 exregions.extend(expand_regions(regions, grid, self.rule))
-
             exregions.extend(get_expanded_regions_by_all_rule(grid, self.rule))
             hints = solve_with_expanded_regions(exregions, grid, self.rule)
 
@@ -363,7 +348,8 @@ class MyWindow(QMainWindow):
             else:
                 hint_count = 0
                 while True:
-                    regions = analyze_regions(grid, self.rule)
+                    regions = get_all_rule_regions(grid, self.rule)
+                    regions.append(get_grid_region(grid, self.rule))
                     if self.rule == "UW":
                         hints.update(find_flag_adjacent_cells(grid))
                     if "Q" in self.rule:
@@ -379,9 +365,9 @@ class MyWindow(QMainWindow):
                 if hints:
                     process_hints(self.window_title, hints, self.cell_size, save_path)
                     continue
-                regions = analyze_regions(grid, self.rule, grid_region=True)
+                regions = get_all_rule_regions(grid, self.rule)
+                regions.append(get_grid_region(grid, self.rule))
                 exregions.extend(expand_regions(regions, grid, self.rule))
-
             exregions.extend(get_expanded_regions_by_all_rule(grid, self.rule))
             hints = solve_with_expanded_regions(exregions, grid, self.rule)
             if hints:

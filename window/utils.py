@@ -74,97 +74,105 @@ def get_total_mines(rule, cell_size):
 
 
 def get_neighbors(rule):
-    for key in ["X", "X'", "K"]:
+    for key in ["V", "X", "X'", "K"]:
         if rule.endswith(key):
             return NEIGHBORS[key]
     else:
         return NEIGHBORS["STANDARD"]
 
 
-def get_cell_region(grid, rule, row, col) -> Region:
-    mines_needed = grid[row][col]
-    neighboring_blanks = set()
-    for dr, dc in get_neighbors(rule):
-        r = row + dr
-        c = col + dc
-        if 0 <= r < len(grid) and 0 <= c < len(grid[0]):
-            if grid[r][c] == -1:
-                neighboring_blanks.add((r, c))
-            elif grid[r][c] == -2:
-                mines_needed -= 1
+def get_rule_regions(grid, rule) -> list[Region]:
+    # ["V", "X", "X'", "K", "B"]
+    regions = []
 
-    if neighboring_blanks:
-        return Region(
-            mines_needed=mines_needed,
-            blank_cells=neighboring_blanks,
-        )
-    else:
-        return None
+    if rule in ["V", "X", "X'", "K"]:
+        for r in range(len(grid)):
+            for c in range(len(grid[0])):
+                if grid[r][c] >= 0:
+                    mines_needed = grid[r][c]
+                    neighboring_blanks = set()
+                    for dr, dc in NEIGHBORS[rule]:
+                        nr, nc = r + dr, c + dc
+                        if 0 <= nr < len(grid) and 0 <= nc < len(grid[0]):
+                            if grid[nr][nc] == -1:
+                                neighboring_blanks.add((nr, nc))
+                            elif grid[nr][nc] == -2:
+                                mines_needed -= 1
+                    if neighboring_blanks:
+                        regions.append(
+                            Region(
+                                mines_needed=mines_needed,
+                                blank_cells=neighboring_blanks,
+                            )
+                        )
+        return regions
+    elif rule == "B":
+        mine_value = get_total_mines(rule, len(grid)) // len(grid)
+        for row in range(len(grid)):
+            mines_needed = mine_value
+            blanks = set()
+            for col in range(len(grid[0])):
+                if grid[row][col] == -2:
+                    mines_needed -= 1
+                elif grid[row][col] == -1:
+                    blanks.add((row, col))
+            if blanks:
+                regions.append(
+                    Region(
+                        mines_needed=mines_needed,
+                        blank_cells=blanks,
+                    )
+                )
+        for col in range(len(grid[0])):
+            mines_needed = mine_value
+            blanks = set()
+            for row in range(len(grid)):
+                if grid[row][col] == -2:
+                    mines_needed -= 1
+                elif grid[row][col] == -1:
+                    blanks.add((row, col))
+            if blanks:
+                regions.append(
+                    Region(
+                        mines_needed=mines_needed,
+                        blank_cells=blanks,
+                    )
+                )
+        return regions
 
 
 def get_grid_region(grid, rule) -> Region:
     mines_needed = get_total_mines(rule, len(grid))
     blanks = set()
-
     for r in range(len(grid)):
         for c in range(len(grid[0])):
             if grid[r][c] == -2:
                 mines_needed -= 1
             elif grid[r][c] == -1:
                 blanks.add((r, c))
-
     return Region(
         mines_needed=mines_needed,
         blank_cells=blanks,
     )
 
 
-def get_row_column_region(grid, rule, row, col) -> Region:
-    mine_value = get_total_mines(rule, len(grid)) // len(grid)
-    blanks = set()
-
-    cells_to_check = []
-    if row is not None:
-        mine_value *= row[1] - row[0] + 1
-        cells_to_check = [
-            (r, c) for r in range(row[0], row[1] + 1) for c in range(len(grid[0]))
-        ]
-    elif col is not None:
-        mine_value *= col[1] - col[0] + 1
-        cells_to_check = [
-            (r, c) for c in range(col[0], col[1] + 1) for r in range(len(grid))
-        ]
-    mines_needed = mine_value
-
-    for r, c in cells_to_check:
-        if grid[r][c] == -2:
-            mines_needed -= 1
-        elif grid[r][c] == -1:
-            blanks.add((r, c))
-
-    return Region(
-        mines_needed=mines_needed,
-        blank_cells=blanks,
-    )
-
-
-def analyze_regions(grid, rule, grid_region=True) -> list[Region]:
+def get_all_rule_regions(grid, rule) -> list[Region]:
     regions = []
-
-    for r in range(len(grid)):
-        for c in range(len(grid[0])):
-            if grid[r][c] >= 0:
-                regions.append(get_cell_region(grid, rule, r, c))
-
-    if grid_region:
-        regions.append(get_grid_region(grid, rule))
-
-    if "B" in rule:
-        for start in range(len(grid)):
-            regions.append(get_row_column_region(grid, rule, (start, start), None))
-            regions.append(get_row_column_region(grid, rule, None, (start, start)))
-
-    return [r for r in regions if r]
+    if rule == "V":
+        regions.extend(get_rule_regions(grid, "V"))
+    elif rule == "B":
+        regions.extend(get_rule_regions(grid, "V"))
+        regions.extend(get_rule_regions(grid, "B"))
+    else:
+        if rule.startswith("B"):
+            regions.extend(get_rule_regions(grid, "B"))
+        if rule.endswith("X"):
+            regions.extend(get_rule_regions(grid, "X"))
+        elif rule.endswith("X'"):
+            regions.extend(get_rule_regions(grid, "X'"))
+        elif rule.endswith("K"):
+            regions.extend(get_rule_regions(grid, "K"))
+    return regions
 
 
 def analyze_exregions_by_rule(grid, rule) -> list:
