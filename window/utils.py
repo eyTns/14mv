@@ -41,6 +41,9 @@ from window.hint_utils import (
     find_triple_inclusions,
     find_triple_inequalities,
     find_two_pairs_inequalities,
+    find_flag_adjacent_cells,
+    find_remaining_cells_from_quad,
+    find_single_cell_from_triplet,
 )
 
 
@@ -225,14 +228,41 @@ def analyze_exregions_by_rule(grid, rule) -> list:
     return regions
 
 
-def find_all_area_hints(regions):
+def analyze_exregions_by_right_side_rules(grid, rule) -> list:
+    exregions = []
+    rules_to_check = []
+    if "M" in rule:
+        rules_to_check.append("M")
+    if "L" in rule:
+        rules_to_check.append("L")
+    if "W" in rule and "W'" not in rule:
+        rules_to_check.append("W")
+    if "N" in rule:
+        rules_to_check.append("N")
+    if "P" in rule:
+        rules_to_check.append("P")
+    if "W'" in rule:
+        rules_to_check.append("W'")
+    for rule in rules_to_check:
+        for exregion in analyze_exregions_by_rule(grid, rule):
+            exregions.append(ExpandedRegion.from_rule_region(exregion, rule))
+    return exregions
+
+
+def find_all_area_hints(regions, grid, rule):
     hints = set()
+    if rule == "UW":
+        hints.update(find_flag_adjacent_cells(grid))
+    if "Q" in rule:
+        hints.update(find_remaining_cells_from_quad(grid))
+    if "T" in rule:
+        hints.update(find_single_cell_from_triplet(grid))
     hints.update(find_single_clickable_cells(regions))
     hints.update(find_double_areas(regions))
-    # hints.update(find_triple_inclusions(regions[:200]))
-    # hints.update(find_triple_inequalities(regions[:200]))
-    # hints.update(find_quadruple_inequalities(regions[:60]))
-    # hints.update(find_two_pairs_inequalities(regions[:60]))
+    hints.update(find_triple_inclusions(regions[:200]))
+    hints.update(find_triple_inequalities(regions[:200]))
+    hints.update(find_quadruple_inequalities(regions[:60]))
+    hints.update(find_two_pairs_inequalities(regions[:60]))
     return hints
 
 
@@ -412,7 +442,7 @@ def apply_filter_for_all_rules(
     return region
 
 
-def get_expanded_regions_by_all_rule(grid, rule):
+def get_expanded_regions_by_left_side_rules(grid, rule):
     exregions = []
     if "Q" in rule:
         exregions.extend(get_expanded_regions_by_rule(grid, RULE_Q))
@@ -455,7 +485,7 @@ def solve_with_expanded_regions(
         ):
             reduced_regions.append(reduced)
         if logging_this:
-            print(reduced,"\n")
+            print(reduced, "\n")
     exregions = reduced_regions
 
     start_time = time.time()

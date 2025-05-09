@@ -19,7 +19,7 @@ from window.image_utils import (
     all_solved_check,
     PuzzleStatus,
 )
-from window.rules import (  # get_quad_expanded_regions,; get_triplet_expanded_regions,; get_single_expanded_regions,
+from window.hint_utils import (
     find_flag_adjacent_cells,
     find_remaining_cells_from_quad,
     find_single_cell_from_triplet,
@@ -38,7 +38,8 @@ from window.utils import (
     get_grid_region,
     process_hints,
     analyze_exregions_by_rule,
-    get_expanded_regions_by_all_rule,
+    analyze_exregions_by_right_side_rules,
+    get_expanded_regions_by_left_side_rules,
     switch_to_other_size,
     get_rule_regions,
     get_all_rule_regions,
@@ -145,44 +146,37 @@ class MyWindow(QMainWindow):
 
         variant_strings = []
         # rules_to_examine = ["D", "A", "H", "M", "L", "W'", "T"]
-        # rules_to_examine = [
-        #     "H",
-        #     "AM",
-        #     "AL",
-        #     "AW",
-        #     "AW'",
-        #     "HM",
-        #     "HL",
-        #     "HW",
-        #     "HN",
-        #     "HX",
-        #     "HX'",
-        #     "HK",
-        #     "HW'",
-        #     "BM",
-        #     "BL",
-        #     "BW",
-        #     "BN",
-        #     "BP",
-        #     "W'",
-        #     "BW'",
-        #     "B",
-        #     "A",
-        # ]
-        # rules_to_examine = ["H", "A", "B", "D", "T"]
-        # left_rules = ["Q", "T", "D", "B", "A", "H"]
-        left_rules = ["Q", "T", "D", "A", "H"]
-        right_rules = ["", "M", "L", "W", "N", "X", "P", "X'", "K", "W'"]
-        rules_to_examine = [i + j for i in left_rules for j in right_rules]
-        shuffle(rules_to_examine)
-        size_to_examine = [5, 6, 7, 8]
+        # left_rules = ["Q", "T", "D", "A", "H"]
+        # right_rules = ["", "M", "L", "W", "N", "X", "P", "X'", "K", "W'"]
+        # rules_to_examine = [i + j for i in left_rules for j in right_rules]
+        # shuffle(rules_to_examine)
+        # size_to_examine = [5, 6, 7, 8]
+        # difficulty_to_examine = ["", "!"]
+        # variant_strings.extend(
+        #     [
+        #         f"{i} {j}{k}"
+        #         for j in size_to_examine
+        #         for k in difficulty_to_examine
+        #         for i in rules_to_examine
+        #     ]
+        # )
+
+        rules_to_examine = [
+            # "AW",
+            "AX'",
+            "AW'",
+            # "BX",
+            # "BX'",
+            # "BK",
+        ]
+        size_to_examine = [5]
         difficulty_to_examine = ["", "!"]
         variant_strings.extend(
             [
                 f"{i} {j}{k}"
                 for j in size_to_examine
-                for k in difficulty_to_examine
                 for i in rules_to_examine
+                for k in difficulty_to_examine
             ]
         )
 
@@ -260,150 +254,58 @@ class MyWindow(QMainWindow):
             #         print(f"{str(cell).rjust(4)}", end=" ")
             #     print()
             # return 1 / 0
-            hints = set()
+            hints_found = False
 
             def is_regionable(rule):
-                regionable_single = [
-                    "Q",
-                    "C",
-                    "T",
-                    "O",
-                    "D",
-                    "S",
-                    "T'",
-                    "D'",
-                    "A",
-                    "H",
-                ]
+                regionable_single = ["Q", "C", "T", "O", "D", "S", "T'", "D'", "A", "H"]
                 regionable_double = ["V", "B", "X", "X'", "K", "BX", "BX'", "BK"]
                 return rule in (regionable_single + regionable_double)
 
-            # special_rules = (
-            #     ("W" in self.rule and not "W'" in self.rule)
-            #     or ("W'" in self.rule)
-            #     or ("L" in self.rule)
-            #     or ("P" in self.rule)
-            #     or ("M" in self.rule)
-            #     or ("N" in self.rule)
-            # )
-
-            # Hint Finding Strategy 1, grid region 미포함
-            if is_regionable(self.rule):
-                ## WIP
-                pass
-
-            # 영역 경우의 수 확장, grid region 미포함
-            # print("searching expanded regions...")
-            exregions = []  ## 숫자로부터 나온 exregions가 더 중요하므로 순서변경 금지
-            if True:
-                rules_to_check = []
-                if "W'" in self.rule:
-                    rules_to_check.append("W'")
-                elif "W" in self.rule:
-                    rules_to_check.append("W")
-                if "L" in self.rule:
-                    rules_to_check.append("L")
-                if "P" in self.rule:
-                    rules_to_check.append("P")
-                if "M" in self.rule:
-                    rules_to_check.append("M")
-                if "N" in self.rule:
-                    rules_to_check.append("N")
-                for rule in rules_to_check:
-                    for region in analyze_exregions_by_rule(grid, rule):
-                        exregions.append(ExpandedRegion.from_rule_region(region, rule))
-            if is_regionable(self.rule):
-                hint_count = 0
-                while True:
-                    regions = get_all_rule_regions(grid, self.rule)
-                    if self.rule == "UW":
-                        hints.update(find_flag_adjacent_cells(grid))
-                    if "Q" in self.rule:
-                        hints.update(find_remaining_cells_from_quad(grid))
-                    if "T" in self.rule:
-                        hints.update(find_single_cell_from_triplet(grid))
-                    hints.update(find_all_area_hints(regions))
-                    if hint_count < len(hints):
-                        hint_count = len(hints)
-                        grid = apply_hints(grid, hints)
-                        continue
-                    break
-                if hints:
-                    process_hints(self.window_title, hints, self.cell_size, save_path)
-                    continue
-            regions = get_all_rule_regions(grid, self.rule)
-            exregions.extend(expand_regions(regions, grid, self.rule))
-            exregions.extend(get_expanded_regions_by_all_rule(grid, self.rule))
-            hints = solve_with_expanded_regions(exregions, grid, self.rule)
-
-            if hints:
-                # print(hints)
-                process_hints(self.window_title, hints, self.cell_size, save_path)
-                # break  ## 임시
-                continue
-
-            # 영역 경우의 수 확장, grid region 포함
-            # print("searching expanded regions including grid...")
-            exregions = []  ## 숫자로부터 나온 exregions가 더 중요하므로 순서변경 금지
-            if True:
-                rules_to_check = []
-                if "W'" in self.rule:
-                    rules_to_check.append("W'")
-                elif "W" in self.rule:
-                    rules_to_check.append("W")
-                if "L" in self.rule:
-                    rules_to_check.append("L")
-                if "P" in self.rule:
-                    rules_to_check.append("P")
-                if "M" in self.rule:
-                    rules_to_check.append("M")
-                if "N" in self.rule:
-                    rules_to_check.append("N")
-                for rule in rules_to_check:
-                    for region in analyze_exregions_by_rule(grid, rule):
-                        exregions.append(ExpandedRegion.from_rule_region(region, rule))
-                regions = [get_grid_region(grid, self.rule)]
-                exregions.extend(expand_regions(regions, grid, self.rule))
-            if is_regionable(self.rule):
-                hint_count = 0
-                while True:
-                    regions = get_all_rule_regions(grid, self.rule)
+            for include_grid in [False, True]:
+                if is_regionable(self.rule):
+                    hint_count = 0
+                    hints = set()
+                    while True:
+                        regions = get_all_rule_regions(grid, self.rule)
+                        if include_grid:
+                            regions.append(get_grid_region(grid, self.rule))
+                        hints.update(find_all_area_hints(regions, grid, self.rule))
+                        if hint_count < len(hints):
+                            hint_count = len(hints)
+                            grid = apply_hints(grid, hints)
+                            continue
+                        break
+                    if hints:
+                        process_hints(
+                            self.window_title, hints, self.cell_size, save_path
+                        )
+                        hints_found = True
+                        break
+                    regions = diff_regions(regions)
+                    print(f"diff regions: {len(regions)}")
+                    hints = find_all_area_hints(regions)
+                    if hints:
+                        process_hints(
+                            self.window_title, hints, self.cell_size, save_path
+                        )
+                        hints_found = True
+                        break
+                exregions = analyze_exregions_by_right_side_rules(grid, self.rule)
+                regions = get_all_rule_regions(grid, self.rule)
+                if include_grid:
                     regions.append(get_grid_region(grid, self.rule))
-                    if self.rule == "UW":
-                        hints.update(find_flag_adjacent_cells(grid))
-                    if "Q" in self.rule:
-                        hints.update(find_remaining_cells_from_quad(grid))
-                    if "T" in self.rule:
-                        hints.update(find_single_cell_from_triplet(grid))
-                    hints.update(find_all_area_hints(regions))
-                    if hint_count < len(hints):
-                        hint_count = len(hints)
-                        grid = apply_hints(grid, hints)
-                        continue
+                exregions.extend(expand_regions(regions, grid, self.rule))
+                exregions.extend(
+                    get_expanded_regions_by_left_side_rules(grid, self.rule)
+                )
+                hints = solve_with_expanded_regions(exregions, grid, self.rule)
+                if hints:
+                    process_hints(self.window_title, hints, self.cell_size, save_path)
+                    hints_found = True
                     break
-                if hints:
-                    process_hints(self.window_title, hints, self.cell_size, save_path)
-                    continue
-            regions = get_all_rule_regions(grid, self.rule)
-            regions.append(get_grid_region(grid, self.rule))
-            exregions.extend(expand_regions(regions, grid, self.rule))
-            exregions.extend(get_expanded_regions_by_all_rule(grid, self.rule))
-            hints = solve_with_expanded_regions(exregions, grid, self.rule)
-            if hints:
-                process_hints(self.window_title, hints, self.cell_size, save_path)
-                continue
-
-            if is_regionable(self.rule):
-                regions = diff_regions(regions)
-                print(f"diff regions: {len(regions)}")
-                hints = set()
-                hints.update(find_all_area_hints(regions))
-                if hints:
-                    process_hints(self.window_title, hints, self.cell_size, save_path)
-                    continue
-
-            print("hint not found")
-            break
+            if not hints_found:
+                print("hint not found")
+                break
 
     def start_new_process(self):
         if hasattr(self, "text_frame"):

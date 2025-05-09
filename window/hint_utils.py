@@ -1,5 +1,6 @@
 from itertools import combinations
 from window.region import Region
+from window.const import SPECIAL_CELLS
 
 
 def find_single_clickable_cells(regions_info: list[Region]):
@@ -202,4 +203,85 @@ def find_two_pairs_inequalities(regions_info: list[Region], deep: bool = False):
         if deep and hints:
             print(f"Two Pair hints: {hints}")
             return hints
+    return hints
+
+
+def find_flag_adjacent_cells(grid):
+    """Rule U: 지뢰에 이웃한 셀은 숫자이다"""
+    height = len(grid)
+    width = len(grid[0])
+    hints = set()
+
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    for row in range(height):
+        for col in range(width):
+            if grid[row][col] == SPECIAL_CELLS["blank"]:
+                for dx, dy in directions:
+                    new_row, new_col = row + dx, col + dy
+                    if 0 <= new_row < height and 0 <= new_col < width:
+                        if grid[new_row][new_col] == SPECIAL_CELLS["flag"]:
+                            hints.add(("safe", (row, col)))
+                            break
+    return hints
+
+
+def find_remaining_cells_from_quad(grid):
+    """Rule Q: 2*2 중 3개의 셀이 숫자이고 나머지가 빈칸이면 그건 지뢰다"""
+    height = len(grid)
+    width = len(grid[0])
+    hints = set()
+    for row in range(height - 1):
+        for col in range(width - 1):
+            cells = [(row, col), (row, col + 1), (row + 1, col), (row + 1, col + 1)]
+            blank_count = 0
+            blank_pos = None
+            for r, c in cells:
+                if grid[r][c] == SPECIAL_CELLS["blank"]:
+                    blank_count += 1
+                    blank_pos = (r, c)
+                elif grid[r][c] == SPECIAL_CELLS["flag"]:
+                    blank_count = -1
+                    break
+            if blank_count == 1:
+                hints.add(("mine", blank_pos))
+    return hints
+
+
+def find_single_cell_from_triplet(grid):
+    """Rule T: 가로, 세로, 대각선으로 연속한 3개의 셀 중 2개가 지뢰이고 나머지가 빈칸이면 그건 숫자다"""
+    height = len(grid)
+    width = len(grid[0])
+    hints = set()
+    directions = [
+        [(0, 0), (0, 1), (0, 2)],
+        [(0, 0), (1, 0), (2, 0)],
+        [(0, 0), (1, 1), (2, 2)],
+        [(0, 2), (1, 1), (2, 0)],
+    ]
+    for row in range(height):
+        for col in range(width):
+            for direction in directions:
+                cells = []
+                valid = True
+                flag_count = 0
+                blank_pos = None
+                for dr, dc in direction:
+                    new_row, new_col = row + dr, col + dc
+                    if not (0 <= new_row < height and 0 <= new_col < width):
+                        valid = False
+                        break
+
+                    cell_value = grid[new_row][new_col]
+                    cells.append((new_row, new_col, cell_value))
+                    if cell_value == SPECIAL_CELLS["flag"]:
+                        flag_count += 1
+                    elif cell_value == SPECIAL_CELLS["blank"]:
+                        if blank_pos is None:
+                            blank_pos = (new_row, new_col)
+                        else:
+                            valid = False
+                            break
+
+                if valid and flag_count == 2 and blank_pos is not None:
+                    hints.add(("safe", blank_pos))
     return hints

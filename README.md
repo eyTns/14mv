@@ -107,6 +107,7 @@ This application failed to start because no Qt platform plugin could be initiali
 - 리전 만들때 cases가 3000개를 넘어가면 "너무큼" 으로 표현하기
 - [+]!5x5 해금하기
 - 리팩토링 - 힌트유틸즈 분리하고 클래스화
+- 쿼드루플 힌트 (둘둘짝) 만들기 (X'! 풀기)
 - V!, X, X', X'!, K, K! 보드정보 입력하기
 - 전체 칸에 대한 개수 세서 활용해서 풀기
 - area2 in (area1 + area3) 인 경우 검사하기
@@ -140,7 +141,6 @@ This application failed to start because no Qt platform plugin could be initiali
 - 안전한 칸과 깃발 꽂을 칸을 표로 / 이미지로 표시
 - 힌트만으로 못풀었으면 문제 그냥 넘기고 계속 진행하기
 - TDD 어케함?
-- 쿼드루플 힌트 (둘둘짝) 만들기 (X'! 풀기)
 - 싱글 힌트 클릭 부활시키기
 - 리팩토링: 주석 빼
 - A in (B 합 C) 이고 (B교C 의 칸 수) = (B needed) = (C needed) = k>0 이면 B교C는 safe이다.
