@@ -1,5 +1,10 @@
 # 14mv
- 14 minesweeper variants hint calculator with GUI
+14 minesweeper variants hint calculator with GUI
+
+
+## 주의
+⚠️ 혼자 쓸 용도로 만들었기 때문에 잘못 실행하여 프로그램이 화면의 여러 곳을 클릭하는 등 예상치 못한 동작을 해도 책임지지 않습니다.
+⚠️ Caution: Because it is intended for use alone, I'm not responsible for unexpected actions of the program such as accidental clicking various places on the screen.
 
 
 ## 켜는법 (windows)
@@ -15,6 +20,7 @@ pip install uv
 uv add pydantic
 uv add --active pydantic
 ```
+
 
 ## pyqt5 가 실행이 안되는 문제
 ```
