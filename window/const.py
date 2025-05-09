@@ -3,8 +3,8 @@
 # MAX_CASES = 30000  ## medium puzzles
 # MAX_CASES = 90000  ## hard puzzles
 # MAX_CASES = 300000  ## harder puzzles
-# MAX_CASES = 650000  ## very hard case (works up to 22 choose 10 = 646646)
-MAX_CASES = 1100000  ## very hard case (works up to 25 choose 17 = 1081575)
+MAX_CASES = 650000  ## very hard case (works up to 22 choose 10 = 646646)
+# MAX_CASES = 1100000  ## very hard case (works up to 25 choose 17 = 1081575)
 
 
 TOTAL_MINES = {
@@ -259,6 +259,7 @@ DOUBLE_RULE_COORDINATES = {
     "T'": ("y", 400),
     "D'": ("y", 440),
     "A": ("y", 480),
+    "H": ("y", 520),
     "M": ("x", 240),
     "L": ("x", 280),
     "W": ("x", 320),

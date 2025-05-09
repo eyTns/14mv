@@ -158,20 +158,24 @@ def get_grid_region(grid, rule) -> Region:
 
 def get_all_rule_regions(grid, rule) -> list[Region]:
     regions = []
-    if rule == "V":
+    regionable_single = ["Q", "C", "T", "O", "D", "S", "T'", "D'", "A", "H"]
+    if rule in regionable_single:
         regions.extend(get_rule_regions(grid, "V"))
-    elif rule == "B":
-        regions.extend(get_rule_regions(grid, "V"))
-        regions.extend(get_rule_regions(grid, "B"))
     else:
-        if rule.startswith("B"):
+        if rule == "V":
+            regions.extend(get_rule_regions(grid, "V"))
+        elif rule == "B":
+            regions.extend(get_rule_regions(grid, "V"))
             regions.extend(get_rule_regions(grid, "B"))
-        if rule.endswith("X"):
-            regions.extend(get_rule_regions(grid, "X"))
-        elif rule.endswith("X'"):
-            regions.extend(get_rule_regions(grid, "X'"))
-        elif rule.endswith("K"):
-            regions.extend(get_rule_regions(grid, "K"))
+        else:
+            if rule.startswith("B"):
+                regions.extend(get_rule_regions(grid, "B"))
+            if rule.endswith("X"):
+                regions.extend(get_rule_regions(grid, "X"))
+            elif rule.endswith("X'"):
+                regions.extend(get_rule_regions(grid, "X'"))
+            elif rule.endswith("K"):
+                regions.extend(get_rule_regions(grid, "K"))
     return regions
 
 
@@ -438,6 +442,8 @@ def solve_with_expanded_regions(
 
     reduced_regions = []
     for exregion in exregions:
+        if logging_this:
+            print(exregion)
         exregion = apply_filter_for_all_rules(exregion, grid, rule)
         new_hints, reduced = extract_hints(exregion)
         if new_hints:
@@ -448,6 +454,8 @@ def solve_with_expanded_regions(
             and 2 ** len(reduced.blank_cells) > reduced.case_count
         ):
             reduced_regions.append(reduced)
+        if logging_this:
+            print(reduced,"\n")
     exregions = reduced_regions
 
     start_time = time.time()

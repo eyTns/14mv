@@ -44,6 +44,7 @@ from window.utils import (
     get_all_rule_regions,
 )
 import time
+from random import shuffle
 
 from window.operate_utils import PuzzleVariant
 
@@ -168,15 +169,20 @@ class MyWindow(QMainWindow):
         #     "B",
         #     "A",
         # ]
-        rules_to_examine = ["H", "A", "B", "D", "T"]
+        # rules_to_examine = ["H", "A", "B", "D", "T"]
+        # left_rules = ["Q", "T", "D", "B", "A", "H"]
+        left_rules = ["Q", "T", "D", "A", "H"]
+        right_rules = ["", "M", "L", "W", "N", "X", "P", "X'", "K", "W'"]
+        rules_to_examine = [i + j for i in left_rules for j in right_rules]
+        shuffle(rules_to_examine)
         size_to_examine = [5, 6, 7, 8]
         difficulty_to_examine = ["", "!"]
         variant_strings.extend(
             [
                 f"{i} {j}{k}"
-                for i in rules_to_examine
-                for k in difficulty_to_examine
                 for j in size_to_examine
+                for k in difficulty_to_examine
+                for i in rules_to_examine
             ]
         )
 
@@ -257,7 +263,20 @@ class MyWindow(QMainWindow):
             hints = set()
 
             def is_regionable(rule):
-                return rule in ["V", "B", "X", "X'", "K", "BX", "BX'", "BK"]
+                regionable_single = [
+                    "Q",
+                    "C",
+                    "T",
+                    "O",
+                    "D",
+                    "S",
+                    "T'",
+                    "D'",
+                    "A",
+                    "H",
+                ]
+                regionable_double = ["V", "B", "X", "X'", "K", "BX", "BX'", "BK"]
+                return rule in (regionable_single + regionable_double)
 
             # special_rules = (
             #     ("W" in self.rule and not "W'" in self.rule)
@@ -276,7 +295,7 @@ class MyWindow(QMainWindow):
             # 영역 경우의 수 확장, grid region 미포함
             # print("searching expanded regions...")
             exregions = []  ## 숫자로부터 나온 exregions가 더 중요하므로 순서변경 금지
-            if not is_regionable(self.rule):
+            if True:
                 rules_to_check = []
                 if "W'" in self.rule:
                     rules_to_check.append("W'")
@@ -293,7 +312,7 @@ class MyWindow(QMainWindow):
                 for rule in rules_to_check:
                     for region in analyze_exregions_by_rule(grid, rule):
                         exregions.append(ExpandedRegion.from_rule_region(region, rule))
-            else:
+            if is_regionable(self.rule):
                 hint_count = 0
                 while True:
                     regions = get_all_rule_regions(grid, self.rule)
@@ -312,8 +331,8 @@ class MyWindow(QMainWindow):
                 if hints:
                     process_hints(self.window_title, hints, self.cell_size, save_path)
                     continue
-                regions = get_all_rule_regions(grid, self.rule)
-                exregions.extend(expand_regions(regions, grid, self.rule))
+            regions = get_all_rule_regions(grid, self.rule)
+            exregions.extend(expand_regions(regions, grid, self.rule))
             exregions.extend(get_expanded_regions_by_all_rule(grid, self.rule))
             hints = solve_with_expanded_regions(exregions, grid, self.rule)
 
@@ -326,7 +345,7 @@ class MyWindow(QMainWindow):
             # 영역 경우의 수 확장, grid region 포함
             # print("searching expanded regions including grid...")
             exregions = []  ## 숫자로부터 나온 exregions가 더 중요하므로 순서변경 금지
-            if not is_regionable(self.rule):
+            if True:
                 rules_to_check = []
                 if "W'" in self.rule:
                     rules_to_check.append("W'")
@@ -345,7 +364,7 @@ class MyWindow(QMainWindow):
                         exregions.append(ExpandedRegion.from_rule_region(region, rule))
                 regions = [get_grid_region(grid, self.rule)]
                 exregions.extend(expand_regions(regions, grid, self.rule))
-            else:
+            if is_regionable(self.rule):
                 hint_count = 0
                 while True:
                     regions = get_all_rule_regions(grid, self.rule)
@@ -365,9 +384,9 @@ class MyWindow(QMainWindow):
                 if hints:
                     process_hints(self.window_title, hints, self.cell_size, save_path)
                     continue
-                regions = get_all_rule_regions(grid, self.rule)
-                regions.append(get_grid_region(grid, self.rule))
-                exregions.extend(expand_regions(regions, grid, self.rule))
+            regions = get_all_rule_regions(grid, self.rule)
+            regions.append(get_grid_region(grid, self.rule))
+            exregions.extend(expand_regions(regions, grid, self.rule))
             exregions.extend(get_expanded_regions_by_all_rule(grid, self.rule))
             hints = solve_with_expanded_regions(exregions, grid, self.rule)
             if hints:
