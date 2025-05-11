@@ -145,38 +145,21 @@ class MyWindow(QMainWindow):
         self.cell_size = detect_cell_size(self.window_title)
 
         variant_strings = []
+
         # rules_to_examine = ["D", "A", "H", "M", "L", "W'", "T"]
         # left_rules = ["Q", "T", "D", "A", "H"]
         # right_rules = ["", "M", "L", "W", "N", "X", "P", "X'", "K", "W'"]
-        # rules_to_examine = [i + j for i in left_rules for j in right_rules]
-        # shuffle(rules_to_examine)
-        # size_to_examine = [5, 6, 7, 8]
-        # difficulty_to_examine = ["", "!"]
-        # variant_strings.extend(
-        #     [
-        #         f"{i} {j}{k}"
-        #         for j in size_to_examine
-        #         for k in difficulty_to_examine
-        #         for i in rules_to_examine
-        #     ]
-        # )
 
-        rules_to_examine = [
-            # "AW",
-            "AX'",
-            "AW'",
-            # "BX",
-            # "BX'",
-            # "BK",
-        ]
-        size_to_examine = [5]
-        difficulty_to_examine = ["", "!"]
+        rules_to_examine = ["M", "L", "D", "B"]
+        # shuffle(rules_to_examine)
+        size_to_examine = [5, 6, 7, 8]
+        difficulty_to_examine = ["!!"]
         variant_strings.extend(
             [
                 f"{i} {j}{k}"
+                for k in difficulty_to_examine
                 for j in size_to_examine
                 for i in rules_to_examine
-                for k in difficulty_to_examine
             ]
         )
 
@@ -283,7 +266,7 @@ class MyWindow(QMainWindow):
                         break
                     regions = diff_regions(regions)
                     print(f"diff regions: {len(regions)}")
-                    hints = find_all_area_hints(regions)
+                    hints = find_all_area_hints(regions, grid, self.rule)
                     if hints:
                         process_hints(
                             self.window_title, hints, self.cell_size, save_path
